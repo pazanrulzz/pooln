@@ -1,0 +1,45 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# env
+.env
+.env.local
+!.env.example
+
+# build output
+dist/
+build/
+.expo/
+.expo-shared/
+web-build/
+
+# prisma
+apps/api/prisma/generated/
+
+# logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# os
+.DS_Store
+
+# editors
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# claude code local settings (machine-specific permissions)
+.claude/settings.local.json
+
+# testing
+coverage/
+
+# expo / react native
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
