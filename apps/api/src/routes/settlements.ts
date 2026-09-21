@@ -2,7 +2,8 @@ import type { FastifyInstance } from 'fastify';
 import type { Prisma } from '@prisma/client';
 import { createSettlementSchema, listSettlementsQuerySchema } from '@pooln/shared';
 import { prisma } from '../lib/prisma.js';
-import { settlementInclude, toSettlementDTO } from '../lib/settlementDto.js';
+import { toSettlementDTO } from '../lib/settlementDto.js';
+import { getUsersByIds, getUsersMapByIds } from '../lib/userRepo.js';
 
 export async function settlementRoutes(app: FastifyInstance) {
   app.post('/settlements', { preHandler: app.authenticate }, async (request, reply) => {
@@ -16,9 +17,7 @@ export async function settlementRoutes(app: FastifyInstance) {
       return reply.code(403).send({ error: 'You must be a party to a settlement you record' });
     }
 
-    const users = await prisma.user.findMany({
-      where: { id: { in: [input.fromUserId, input.toUserId] } },
-    });
+    const users = await getUsersByIds([input.fromUserId, input.toUserId]);
     if (users.length !== 2) {
       return reply.code(400).send({ error: 'One or both users do not exist' });
     }
@@ -33,10 +32,10 @@ export async function settlementRoutes(app: FastifyInstance) {
         settledAt: input.settledAt ? new Date(input.settledAt) : undefined,
         createdById: request.user.sub,
       },
-      ...settlementInclude,
     });
 
-    return reply.code(201).send(toSettlementDTO(settlement));
+    const usersById = new Map(users.map((u) => [u.id, u]));
+    return reply.code(201).send(toSettlementDTO(settlement, usersById));
   });
 
   app.get('/settlements', { preHandler: app.authenticate }, async (request, reply) => {
@@ -60,17 +59,12 @@ export async function settlementRoutes(app: FastifyInstance) {
       : requesterFilter;
 
     const [settlements, total] = await Promise.all([
-      prisma.settlement.findMany({
-        where,
-        ...settlementInclude,
-        orderBy: { settledAt: 'desc' },
-        take: limit,
-        skip: offset,
-      }),
+      prisma.settlement.findMany({ where, orderBy: { settledAt: 'desc' }, take: limit, skip: offset }),
       prisma.settlement.count({ where }),
     ]);
 
-    return reply.send({ settlements: settlements.map(toSettlementDTO), total });
+    const usersById = await getUsersMapByIds(settlements.flatMap((s) => [s.fromUserId, s.toUserId]));
+    return reply.send({ settlements: settlements.map((s) => toSettlementDTO(s, usersById)), total });
   });
 
   app.delete('/settlements/:id', { preHandler: app.authenticate }, async (request, reply) => {

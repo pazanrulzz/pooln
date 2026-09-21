@@ -1,6 +1,6 @@
 import type { FastifyInstance } from 'fastify';
 import { computeBalances } from '../lib/balances.js';
-import { prisma } from '../lib/prisma.js';
+import { getUserById } from '../lib/userRepo.js';
 
 export async function balanceRoutes(app: FastifyInstance) {
   app.get('/balances', { preHandler: app.authenticate }, async (request, reply) => {
@@ -11,7 +11,7 @@ export async function balanceRoutes(app: FastifyInstance) {
   app.get('/balances/:userId', { preHandler: app.authenticate }, async (request, reply) => {
     const { userId } = request.params as { userId: string };
 
-    const counterpart = await prisma.user.findUnique({ where: { id: userId } });
+    const counterpart = await getUserById(userId);
     if (!counterpart) {
       return reply.code(404).send({ error: 'User not found' });
     }

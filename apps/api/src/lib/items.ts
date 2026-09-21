@@ -30,7 +30,10 @@ export interface RefreshTokenItem extends BaseItem {
   tokenHash: string;
   userId: string;
   expiresAt: string;
-  revokedAt: string | null;
+  // Omitted (not `null`) until actually revoked — a `null` value still
+  // counts as "attribute exists" in DynamoDB, which broke
+  // attribute_not_exists(revokedAt) conditional revokes.
+  revokedAt?: string;
   createdAt: string;
   /** DynamoDB-native TTL, epoch seconds — auto-cleans up long after expiresAt. */
   ttl: number;

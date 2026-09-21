@@ -7,39 +7,12 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model User {
-  id              String   @id @default(uuid())
-  email           String   @unique
-  passwordHash    String   @map("password_hash")
-  displayName     String   @map("display_name")
-  avatarUrl       String?  @map("avatar_url")
-  defaultCurrency String   @default("USD") @map("default_currency") @db.Char(3)
-  createdAt       DateTime @default(now()) @map("created_at")
-  updatedAt       DateTime @updatedAt @map("updated_at")
-
-  refreshTokens         RefreshToken[]
-  expensesCreated       Expense[]            @relation("ExpensesCreated")
-  expenseParticipations ExpenseParticipant[] @relation("ExpenseParticipations")
-  settlementsSent       Settlement[]         @relation("SettlementsSent")
-  settlementsReceived   Settlement[]         @relation("SettlementsReceived")
-  settlementsRecorded   Settlement[]         @relation("SettlementsRecorded")
-
-  @@map("users")
-}
-
-model RefreshToken {
-  id        String    @id @default(uuid())
-  userId    String    @map("user_id")
-  tokenHash String    @unique @map("token_hash")
-  expiresAt DateTime  @map("expires_at")
-  revokedAt DateTime? @map("revoked_at")
-  createdAt DateTime  @default(now()) @map("created_at")
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  @@index([userId])
-  @@map("refresh_tokens")
-}
+// User and RefreshToken moved to DynamoDB in the Phase 1 auth cutover (see
+// the plan file) — Expense/ExpenseParticipant/Settlement still reference
+// user ids as plain strings (no FK, no Prisma relation: Postgres no longer
+// has any record of users at all, so a foreign key constraint against a
+// `users` table would reject every insert). These three models move to
+// DynamoDB too in a later phase; this whole file goes away after that.
 
 enum SplitType {
   EQUAL
@@ -61,7 +34,6 @@ model Expense {
   updatedAt        DateTime  @updatedAt @map("updated_at")
   deletedAt        DateTime? @map("deleted_at")
 
-  createdBy    User                 @relation("ExpensesCreated", fields: [createdById], references: [id])
   participants ExpenseParticipant[]
 
   @@index([createdById])
@@ -78,7 +50,6 @@ model ExpenseParticipant {
   shareUnits           Int?   @map("share_units")
 
   expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
-  user    User    @relation("ExpenseParticipations", fields: [userId], references: [id])
 
   @@unique([expenseId, userId])
   @@index([userId])
@@ -96,10 +67,6 @@ model Settlement {
   createdById      String    @map("created_by_id")
   createdAt        DateTime  @default(now()) @map("created_at")
   deletedAt        DateTime? @map("deleted_at")
-
-  fromUser  User @relation("SettlementsSent", fields: [fromUserId], references: [id])
-  toUser    User @relation("SettlementsReceived", fields: [toUserId], references: [id])
-  createdBy User @relation("SettlementsRecorded", fields: [createdById], references: [id])
 
   @@index([fromUserId])
   @@index([toUserId])

@@ -2,7 +2,13 @@ import type { FastifyInstance } from 'fastify';
 import type { Prisma } from '@prisma/client';
 import { calculateSplit, createExpenseSchema, listExpensesQuerySchema, updateExpenseSchema } from '@pooln/shared';
 import { prisma } from '../lib/prisma.js';
-import { expenseInclude, toExpenseDTO } from '../lib/expenseDto.js';
+import { expenseInclude, toExpenseDTO, type ExpenseWithParticipants } from '../lib/expenseDto.js';
+import { getUsersByIds, getUsersMapByIds } from '../lib/userRepo.js';
+
+async function dtoWithParticipants(expense: ExpenseWithParticipants) {
+  const usersById = await getUsersMapByIds(expense.participants.map((p) => p.userId));
+  return toExpenseDTO(expense, usersById);
+}
 
 export async function expenseRoutes(app: FastifyInstance) {
   app.post('/expenses', { preHandler: app.authenticate }, async (request, reply) => {
@@ -17,7 +23,7 @@ export async function expenseRoutes(app: FastifyInstance) {
     }
 
     const participantIds = input.participants.map((p) => p.userId);
-    const users = await prisma.user.findMany({ where: { id: { in: participantIds } } });
+    const users = await getUsersByIds(participantIds);
     if (users.length !== participantIds.length) {
       return reply.code(400).send({ error: 'One or more participants do not exist' });
     }
@@ -56,7 +62,8 @@ export async function expenseRoutes(app: FastifyInstance) {
       ...expenseInclude,
     });
 
-    return reply.code(201).send(toExpenseDTO(expense));
+    const usersById = new Map(users.map((u) => [u.id, u]));
+    return reply.code(201).send(toExpenseDTO(expense, usersById));
   });
 
   app.get('/expenses', { preHandler: app.authenticate }, async (request, reply) => {
@@ -79,7 +86,8 @@ export async function expenseRoutes(app: FastifyInstance) {
       prisma.expense.count({ where }),
     ]);
 
-    return reply.send({ expenses: expenses.map(toExpenseDTO), total });
+    const usersById = await getUsersMapByIds(expenses.flatMap((e) => e.participants.map((p) => p.userId)));
+    return reply.send({ expenses: expenses.map((e) => toExpenseDTO(e, usersById)), total });
   });
 
   app.get('/expenses/:id', { preHandler: app.authenticate }, async (request, reply) => {
@@ -91,7 +99,7 @@ export async function expenseRoutes(app: FastifyInstance) {
     if (!expense) {
       return reply.code(404).send({ error: 'Expense not found' });
     }
-    return reply.send(toExpenseDTO(expense));
+    return reply.send(await dtoWithParticipants(expense));
   });
 
   app.put('/expenses/:id', { preHandler: app.authenticate }, async (request, reply) => {
@@ -110,7 +118,7 @@ export async function expenseRoutes(app: FastifyInstance) {
     const input = parsed.data;
 
     const participantIds = input.participants.map((p) => p.userId);
-    const users = await prisma.user.findMany({ where: { id: { in: participantIds } } });
+    const users = await getUsersByIds(participantIds);
     if (users.length !== participantIds.length) {
       return reply.code(400).send({ error: 'One or more participants do not exist' });
     }
@@ -151,7 +159,8 @@ export async function expenseRoutes(app: FastifyInstance) {
       });
     });
 
-    return reply.send(toExpenseDTO(expense));
+    const usersById = new Map(users.map((u) => [u.id, u]));
+    return reply.send(toExpenseDTO(expense, usersById));
   });
 
   app.delete('/expenses/:id', { preHandler: app.authenticate }, async (request, reply) => {

@@ -1,5 +1,6 @@
 import type { BalanceLine, CounterpartBalance } from '@pooln/shared';
 import { prisma } from './prisma.js';
+import { getUsersByIds } from './userRepo.js';
 
 /**
  * Net balance between the requester and everyone they've shared an expense
@@ -77,7 +78,7 @@ export async function computeBalances(
   const counterpartIds = [...net.keys()];
   if (counterpartIds.length === 0) return [];
 
-  const users = await prisma.user.findMany({ where: { id: { in: counterpartIds } } });
+  const users = await getUsersByIds(counterpartIds);
   const userById = new Map(users.map((u) => [u.id, u]));
 
   return counterpartIds
