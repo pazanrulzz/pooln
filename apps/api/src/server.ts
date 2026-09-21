@@ -6,6 +6,7 @@ import type { HealthStatus } from '@pooln/shared';
 import { env } from './lib/env.js';
 import { authRoutes } from './routes/auth.js';
 import { meRoutes } from './routes/me.js';
+import { userRoutes } from './routes/users.js';
 
 export function buildServer() {
   const app = Fastify({ logger: true });
@@ -30,6 +31,7 @@ export function buildServer() {
 
   app.register(authRoutes);
   app.register(meRoutes);
+  app.register(userRoutes);
 
   return app;
 }

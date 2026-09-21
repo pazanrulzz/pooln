@@ -3,3 +3,4 @@ export interface HealthStatus {
 }
 
 export * from './auth';
+export * from './users';

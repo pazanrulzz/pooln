@@ -1,23 +1,6 @@
-import { randomUUID } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 import { buildServer } from '../server.js';
-
-function uniqueEmail() {
-  return `test-${randomUUID()}@pooln.test`;
-}
-
-async function signup(app: ReturnType<typeof buildServer>, overrides: Partial<Record<string, string>> = {}) {
-  return app.inject({
-    method: 'POST',
-    url: '/auth/signup',
-    payload: {
-      email: uniqueEmail(),
-      password: 'longenoughpassword',
-      displayName: 'Test User',
-      ...overrides,
-    },
-  });
-}
+import { signup, uniqueEmail } from '../test/helpers.js';
 
 describe('POST /auth/signup', () => {
   it('creates a user and returns tokens', async () => {
