@@ -1,7 +1,7 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import * as authApi from '../../api/auth';
-import { useAuthStore } from '../../stores/authStore';
+import * as authApi from '../../../api/auth';
+import { useAuthStore } from '../../../stores/authStore';
 
 export default function Account() {
   const refreshToken = useAuthStore((s) => s.refreshToken);

@@ -7,13 +7,16 @@ import { env } from './lib/env.js';
 import { authRoutes } from './routes/auth.js';
 import { meRoutes } from './routes/me.js';
 import { userRoutes } from './routes/users.js';
+import { expenseRoutes } from './routes/expenses.js';
 
 export function buildServer() {
   const app = Fastify({ logger: true });
 
   // Native mobile clients aren't subject to CORS, but Expo web (and any
-  // browser-based client) needs this for local development.
-  app.register(cors, { origin: true });
+  // browser-based client) needs this for local development. @fastify/cors's
+  // default `methods` list is only GET,HEAD,POST — PUT/PATCH/DELETE need to
+  // be listed explicitly or their preflight silently fails.
+  app.register(cors, { origin: true, methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'] });
 
   app.register(jwt, { secret: env.JWT_ACCESS_SECRET });
 
@@ -32,6 +35,7 @@ export function buildServer() {
   app.register(authRoutes);
   app.register(meRoutes);
   app.register(userRoutes);
+  app.register(expenseRoutes);
 
   return app;
 }

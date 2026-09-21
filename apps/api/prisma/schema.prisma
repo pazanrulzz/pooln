@@ -17,7 +17,9 @@ model User {
   createdAt       DateTime @default(now()) @map("created_at")
   updatedAt       DateTime @updatedAt @map("updated_at")
 
-  refreshTokens RefreshToken[]
+  refreshTokens         RefreshToken[]
+  expensesCreated       Expense[]            @relation("ExpensesCreated")
+  expenseParticipations ExpenseParticipant[] @relation("ExpenseParticipations")
 
   @@map("users")
 }
@@ -36,4 +38,48 @@ model RefreshToken {
   @@map("refresh_tokens")
 }
 
-// Groups, expenses, and other domain models land in Phase 2+.
+enum SplitType {
+  EQUAL
+  EXACT
+  PERCENTAGE
+  SHARES
+}
+
+model Expense {
+  id               String    @id @default(uuid())
+  description      String
+  amountMinorUnits Int       @map("amount_minor_units")
+  currency         String    @db.Char(3)
+  splitType        SplitType @map("split_type")
+  date             DateTime  @default(now())
+  notes            String?
+  createdById      String    @map("created_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  updatedAt        DateTime  @updatedAt @map("updated_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  createdBy    User                 @relation("ExpensesCreated", fields: [createdById], references: [id])
+  participants ExpenseParticipant[]
+
+  @@index([createdById])
+  @@map("expenses")
+}
+
+model ExpenseParticipant {
+  id                   String @id @default(uuid())
+  expenseId            String @map("expense_id")
+  userId               String @map("user_id")
+  paidAmountMinorUnits Int    @default(0) @map("paid_amount_minor_units")
+  owedAmountMinorUnits Int    @default(0) @map("owed_amount_minor_units")
+  sharePercentBp       Int?   @map("share_percent_bp")
+  shareUnits           Int?   @map("share_units")
+
+  expense Expense @relation(fields: [expenseId], references: [id], onDelete: Cascade)
+  user    User    @relation("ExpenseParticipations", fields: [userId], references: [id])
+
+  @@unique([expenseId, userId])
+  @@index([userId])
+  @@map("expense_participants")
+}
+
+// Groups, settlements, and other domain models land in later phases.

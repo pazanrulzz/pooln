@@ -4,3 +4,5 @@ export interface HealthStatus {
 
 export * from './auth';
 export * from './users';
+export * from './splitCalc';
+export * from './expenses';

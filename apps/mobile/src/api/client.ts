@@ -40,7 +40,9 @@ async function refreshTokens(): Promise<boolean> {
 export async function apiFetch<T>(path: string, init: RequestInit = {}, retry = true): Promise<T> {
   const { accessToken } = useAuthStore.getState();
   const headers = new Headers(init.headers);
-  headers.set('Content-Type', 'application/json');
+  // Only set Content-Type when there's a body — Fastify's JSON parser
+  // rejects an empty body when this header is present (e.g. on DELETE).
+  if (init.body !== undefined) headers.set('Content-Type', 'application/json');
   if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
 
   const res = await fetch(`${API_URL}${path}`, { ...init, headers });

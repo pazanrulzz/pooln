@@ -52,3 +52,51 @@ Content-Type: application/json
 {
   "displayName": "Updated Name"
 }
+
+### Search for a user by exact email (to add as an expense participant)
+GET {{baseUrl}}/users/search?email=test@pooln.test
+Authorization: Bearer paste-access-token-here
+
+### Create an expense (equal split — payerId must be one of the participants)
+POST {{baseUrl}}/expenses
+Authorization: Bearer paste-access-token-here
+Content-Type: application/json
+
+{
+  "description": "Dinner",
+  "amountMinorUnits": 1000,
+  "splitType": "EQUAL",
+  "payerId": "paste-your-user-id-here",
+  "participants": [
+    { "userId": "paste-your-user-id-here" },
+    { "userId": "paste-other-user-id-here" }
+  ]
+}
+
+### List expenses you're a participant in
+GET {{baseUrl}}/expenses
+Authorization: Bearer paste-access-token-here
+
+### Get one expense
+GET {{baseUrl}}/expenses/paste-expense-id-here
+Authorization: Bearer paste-access-token-here
+
+### Edit an expense (full replace — same shape as create)
+PUT {{baseUrl}}/expenses/paste-expense-id-here
+Authorization: Bearer paste-access-token-here
+Content-Type: application/json
+
+{
+  "description": "Dinner (updated)",
+  "amountMinorUnits": 1200,
+  "splitType": "EQUAL",
+  "payerId": "paste-your-user-id-here",
+  "participants": [
+    { "userId": "paste-your-user-id-here" },
+    { "userId": "paste-other-user-id-here" }
+  ]
+}
+
+### Delete an expense (soft delete)
+DELETE {{baseUrl}}/expenses/paste-expense-id-here
+Authorization: Bearer paste-access-token-here
