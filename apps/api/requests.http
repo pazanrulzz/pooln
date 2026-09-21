@@ -2,3 +2,53 @@
 
 ### Health check
 GET {{baseUrl}}/health
+
+### Sign up
+# @name signup
+POST {{baseUrl}}/auth/signup
+Content-Type: application/json
+
+{
+  "email": "test@pooln.test",
+  "password": "longenoughpassword",
+  "displayName": "Test User"
+}
+
+### Log in
+# @name login
+POST {{baseUrl}}/auth/login
+Content-Type: application/json
+
+{
+  "email": "test@pooln.test",
+  "password": "longenoughpassword"
+}
+
+### Refresh tokens (copy refreshToken from a signup/login response above)
+POST {{baseUrl}}/auth/refresh
+Content-Type: application/json
+
+{
+  "refreshToken": "paste-refresh-token-here"
+}
+
+### Log out (revokes the refresh token)
+POST {{baseUrl}}/auth/logout
+Content-Type: application/json
+
+{
+  "refreshToken": "paste-refresh-token-here"
+}
+
+### Get current user (paste accessToken from a signup/login response above)
+GET {{baseUrl}}/me
+Authorization: Bearer paste-access-token-here
+
+### Update current user
+PATCH {{baseUrl}}/me
+Authorization: Bearer paste-access-token-here
+Content-Type: application/json
+
+{
+  "displayName": "Updated Name"
+}

@@ -6,15 +6,17 @@ const workspaceRoot = path.resolve(projectRoot, '../..');
 
 const config = getDefaultConfig(projectRoot);
 
-// pnpm workspaces: shared packages live outside apps/mobile and are symlinked
-// into node_modules, so Metro needs to watch the monorepo root and resolve
-// dependencies hoisted to the root node_modules.
+// pnpm workspaces: shared packages live outside apps/mobile, so Metro needs
+// to watch the monorepo root and resolve dependencies hoisted there.
+// Hierarchical lookup stays enabled (the default) so a package-local
+// node_modules override (e.g. packages/shared/node_modules/zod, pinned to a
+// different version than whatever's hoisted to the workspace root) still
+// wins, as plain Node resolution would.
 config.watchFolders = [workspaceRoot];
 config.resolver.nodeModulesPaths = [
   path.resolve(projectRoot, 'node_modules'),
   path.resolve(workspaceRoot, 'node_modules'),
 ];
-config.resolver.disableHierarchicalLookup = true;
 config.resolver.unstable_enableSymlinks = true;
 
 module.exports = config;
