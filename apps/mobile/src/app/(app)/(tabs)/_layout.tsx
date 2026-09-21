@@ -4,6 +4,7 @@ export default function TabsLayout() {
   return (
     <Tabs>
       <Tabs.Screen name="index" options={{ title: 'Expenses' }} />
+      <Tabs.Screen name="balances" options={{ title: 'Balances' }} />
       <Tabs.Screen name="account" options={{ title: 'Account' }} />
     </Tabs>
   );

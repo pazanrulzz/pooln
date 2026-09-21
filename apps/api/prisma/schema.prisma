@@ -20,6 +20,9 @@ model User {
   refreshTokens         RefreshToken[]
   expensesCreated       Expense[]            @relation("ExpensesCreated")
   expenseParticipations ExpenseParticipant[] @relation("ExpenseParticipations")
+  settlementsSent       Settlement[]         @relation("SettlementsSent")
+  settlementsReceived   Settlement[]         @relation("SettlementsReceived")
+  settlementsRecorded   Settlement[]         @relation("SettlementsRecorded")
 
   @@map("users")
 }
@@ -82,4 +85,25 @@ model ExpenseParticipant {
   @@map("expense_participants")
 }
 
-// Groups, settlements, and other domain models land in later phases.
+model Settlement {
+  id               String    @id @default(uuid())
+  fromUserId       String    @map("from_user_id")
+  toUserId         String    @map("to_user_id")
+  amountMinorUnits Int       @map("amount_minor_units")
+  currency         String    @db.Char(3)
+  note             String?
+  settledAt        DateTime  @default(now()) @map("settled_at")
+  createdById      String    @map("created_by_id")
+  createdAt        DateTime  @default(now()) @map("created_at")
+  deletedAt        DateTime? @map("deleted_at")
+
+  fromUser  User @relation("SettlementsSent", fields: [fromUserId], references: [id])
+  toUser    User @relation("SettlementsReceived", fields: [toUserId], references: [id])
+  createdBy User @relation("SettlementsRecorded", fields: [createdById], references: [id])
+
+  @@index([fromUserId])
+  @@index([toUserId])
+  @@map("settlements")
+}
+
+// Groups and other domain models land in later phases.

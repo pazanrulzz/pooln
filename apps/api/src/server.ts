@@ -8,6 +8,8 @@ import { authRoutes } from './routes/auth.js';
 import { meRoutes } from './routes/me.js';
 import { userRoutes } from './routes/users.js';
 import { expenseRoutes } from './routes/expenses.js';
+import { balanceRoutes } from './routes/balances.js';
+import { settlementRoutes } from './routes/settlements.js';
 
 export function buildServer() {
   const app = Fastify({ logger: true });
@@ -36,6 +38,8 @@ export function buildServer() {
   app.register(meRoutes);
   app.register(userRoutes);
   app.register(expenseRoutes);
+  app.register(balanceRoutes);
+  app.register(settlementRoutes);
 
   return app;
 }
