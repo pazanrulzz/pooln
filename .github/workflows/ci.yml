@@ -28,6 +28,12 @@ jobs:
       DATABASE_URL: postgresql://pooln:pooln@localhost:5432/pooln
       JWT_ACCESS_SECRET: ci-access-secret
       JWT_REFRESH_SECRET: ci-refresh-secret
+      # DynamoDB Local doesn't validate credentials — dummy values are fine.
+      AWS_REGION: local
+      AWS_ACCESS_KEY_ID: local
+      AWS_SECRET_ACCESS_KEY: local
+      DYNAMODB_TABLE_NAME: poolnDB
+      DYNAMODB_ENDPOINT: http://localhost:8000
 
     steps:
       - uses: actions/checkout@v4
@@ -40,6 +46,13 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: pnpm
+
+      # GitHub Actions' declarative `services:` block can't override a
+      # service image's command, and DynamoDB Local needs -inMemory (its
+      # default -dbPath SQLite file can't be opened on some volume setups —
+      # see docker/docker-compose.yml) — so it's started by hand instead.
+      - name: Start DynamoDB Local
+        run: docker run -d --name dynamodb-local -p 8000:8000 amazon/dynamodb-local:latest -jar DynamoDBLocal.jar -inMemory -sharedDb
 
       - run: pnpm install --frozen-lockfile
 

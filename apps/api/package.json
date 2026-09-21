@@ -3,17 +3,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "tsx watch src/server.ts",
-    "start": "node dist/server.js",
+    "dev": "tsx scripts/ensure-table.ts && tsx watch src/server.ts",
+    "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test": "export DATABASE_URL=\"postgresql://pooln:pooln@localhost:5432/pooln_test\"; prisma migrate deploy && vitest run",
+    "test": "export DATABASE_URL=\"postgresql://pooln:pooln@localhost:5432/pooln_test\" DYNAMODB_TABLE_NAME=\"poolnDB-test\"; prisma migrate deploy && tsx scripts/ensure-table.ts && vitest run",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:studio": "prisma studio"
   },
   "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.1136.0",
+    "@aws-sdk/lib-dynamodb": "^3.1136.0",
     "@fastify/cors": "^11.3.0",
     "@fastify/jwt": "^10.2.2",
     "@pooln/shared": "workspace:*",

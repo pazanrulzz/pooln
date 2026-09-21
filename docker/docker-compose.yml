@@ -17,5 +17,20 @@ services:
       timeout: 5s
       retries: 5
 
+  # Being migrated off Postgres to DynamoDB (see the plan file) — this
+  # container is dropped once the migration's teardown phase lands.
+  # -inMemory (no volume): the official image's default -dbPath SQLite file
+  # can't be opened when it lands on a fresh named Docker volume (root-owned,
+  # container user can't write to it) — crash-loops instead of erroring
+  # cleanly, which just hangs any real request. Nothing here needs to survive
+  # a container restart: ensure-table.ts recreates the table on every
+  # `dev`/`test` run, and tests use throwaway random data anyway.
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
+
 volumes:
   pooln_postgres_data:
