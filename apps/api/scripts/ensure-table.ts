@@ -1,9 +1,11 @@
 /**
- * Idempotently creates the app's DynamoDB table against DynamoDB Local for
- * dev/test, matching the schema of the real AWS `poolnDB` table exactly
- * (PK/SK String, one GSI1PK/GSI1SK index with ProjectionType ALL,
- * PAY_PER_REQUEST billing). Run via `pnpm --filter api predev` / the `test`
- * script — never against real AWS, see the guard below.
+ * Idempotently creates the app's DynamoDB table against DynamoDB Local,
+ * matching the schema of the real AWS `poolnDB` table exactly (PK/SK
+ * String, one GSI1PK/GSI1SK index with ProjectionType ALL, PAY_PER_REQUEST
+ * billing). Run automatically by the `test` script — `dev` talks to the
+ * real cloud table directly and doesn't need this at all. Never runs
+ * against real AWS, see the guard below — the real table is provisioned by
+ * hand, not by this script.
  */
 import {
   CreateTableCommand,

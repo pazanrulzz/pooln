@@ -10,7 +10,7 @@ Early scaffolding. No features yet — see [CONTRIBUTING.md](./CONTRIBUTING.md) 
 
 - **Mobile**: React Native + [Expo](https://expo.dev) (TypeScript), [expo-router](https://docs.expo.dev/router/introduction/)
 - **API**: [Fastify](https://fastify.dev) (TypeScript)
-- **Database**: DynamoDB (single-table design; DynamoDB Local for dev/test)
+- **Database**: DynamoDB (single-table design), the real AWS table — DynamoDB Local is used only for the automated test suite
 - **Monorepo**: pnpm workspaces (`apps/mobile`, `apps/api`, `packages/shared`)
 
 ## Structure
@@ -22,7 +22,7 @@ apps/
 packages/
   shared/     Types, validation schemas, and business logic shared between mobile and api
 docker/
-  docker-compose.yml   Local DynamoDB
+  docker-compose.yml   Local DynamoDB, used by the test suite
 ```
 
 ## License

@@ -12,6 +12,7 @@ import { balanceRoutes } from './routes/balances.js';
 import { settlementRoutes } from './routes/settlements.js';
 import { groupRoutes } from './routes/groups.js';
 import { inviteRoutes } from './routes/invites.js';
+import { activityRoutes } from './routes/activity.js';
 
 export function buildServer() {
   const app = Fastify({ logger: true });
@@ -44,6 +45,7 @@ export function buildServer() {
   app.register(settlementRoutes);
   app.register(groupRoutes);
   app.register(inviteRoutes);
+  app.register(activityRoutes);
 
   return app;
 }

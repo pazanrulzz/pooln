@@ -3,8 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "export DYNAMODB_ENDPOINT=\"http://localhost:8000\"; tsx scripts/ensure-table.ts && tsx watch src/server.ts",
-    "dev:cloud": "tsx watch src/server.ts",
+    "dev": "tsx watch src/server.ts",
     "start": "node dist/src/server.js",
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",

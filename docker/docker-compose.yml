@@ -1,10 +1,15 @@
 services:
+  # Used by `pnpm test`/CI only — `pnpm dev` talks to the real DynamoDB
+  # table in AWS directly and doesn't need this container at all. (You can
+  # still point `dev` at this instead if you'd rather not use a real AWS
+  # account — see apps/api/.env.example.)
+  #
   # -inMemory (no volume): the official image's default -dbPath SQLite file
   # can't be opened when it lands on a fresh named Docker volume (root-owned,
   # container user can't write to it) — crash-loops instead of erroring
   # cleanly, which just hangs any real request. Nothing here needs to survive
-  # a container restart: ensure-table.ts recreates the table on every
-  # `dev`/`test` run, and tests use throwaway random data anyway.
+  # a container restart: ensure-table.ts recreates the table on every test
+  # run, and tests use throwaway random data anyway.
   dynamodb-local:
     image: amazon/dynamodb-local:latest
     restart: unless-stopped
