@@ -3,6 +3,7 @@ import { Link } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import type { GroupDTO } from '@pooln/shared';
 import * as groupsApi from '../../../api/groups';
+import { useTabBarClearance } from '../../../components/FloatingTabBar';
 
 function GroupRow({ group }: { group: GroupDTO }) {
   return (
@@ -22,6 +23,7 @@ export default function GroupsList() {
     queryKey: ['groups'],
     queryFn: () => groupsApi.listGroups(),
   });
+  const fabBottom = useTabBarClearance();
 
   return (
     <View style={styles.container}>
@@ -38,7 +40,7 @@ export default function GroupsList() {
       )}
 
       <Link href="/groups/new" asChild>
-        <Pressable style={styles.fab}>
+        <Pressable style={StyleSheet.flatten([styles.fab, { bottom: fabBottom }])}>
           <Text style={styles.fabText}>＋</Text>
         </Pressable>
       </Link>
@@ -66,7 +68,6 @@ const styles = StyleSheet.create({
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 24,
     width: 56,
     height: 56,
     borderRadius: 28,

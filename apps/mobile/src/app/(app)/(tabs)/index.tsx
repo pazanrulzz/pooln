@@ -4,24 +4,39 @@ import { useQuery } from '@tanstack/react-query';
 import type { CounterpartBalance } from '@pooln/shared';
 import * as balancesApi from '../../../api/balances';
 import { formatMoney } from '../../../lib/money';
+import { useTabBarClearance } from '../../../components/FloatingTabBar';
 
 function BalanceRow({ balance }: { balance: CounterpartBalance }) {
   return (
     <Link href={`/balances/${balance.userId}`} asChild>
       <Pressable style={styles.row}>
-        <Text style={styles.name}>{balance.displayName}</Text>
-        {balance.balances.length === 0 ? (
-          <Text style={styles.settled}>Settled up</Text>
-        ) : (
-          <View style={styles.amounts}>
-            {balance.balances.map((line) => (
-              <Text
-                key={line.currency}
-                style={[styles.amount, line.amountMinorUnits >= 0 ? styles.positive : styles.negative]}
-              >
-                {line.amountMinorUnits >= 0 ? 'owes you ' : 'you owe '}
+        <View style={styles.left}>
+          <Text style={styles.name}>{balance.displayName}</Text>
+          {balance.balances.length === 0 ? (
+            <Text style={styles.settled}>Settled up</Text>
+          ) : (
+            balance.balances.map((line) => (
+              <Text key={line.currency} style={styles.detail}>
+                {line.amountMinorUnits >= 0 ? 'Owes you ' : 'You owe '}
                 {formatMoney(Math.abs(line.amountMinorUnits), line.currency)}
               </Text>
+            ))
+          )}
+        </View>
+
+        {balance.balances.length > 0 && (
+          <View style={styles.amounts}>
+            {balance.balances.map((line) => (
+              <View key={line.currency} style={styles.amountBlock}>
+                <Text
+                  style={[styles.amountLabel, line.amountMinorUnits >= 0 ? styles.positive : styles.negative]}
+                >
+                  {line.amountMinorUnits >= 0 ? "You're owed" : 'You owe'}
+                </Text>
+                <Text style={[styles.amount, line.amountMinorUnits >= 0 ? styles.positive : styles.negative]}>
+                  {formatMoney(Math.abs(line.amountMinorUnits), line.currency)}
+                </Text>
+              </View>
             ))}
           </View>
         )}
@@ -35,6 +50,7 @@ export default function ExpensesList() {
     queryKey: ['balances'],
     queryFn: balancesApi.listBalances,
   });
+  const fabBottom = useTabBarClearance();
 
   return (
     <View style={styles.container}>
@@ -51,7 +67,7 @@ export default function ExpensesList() {
       )}
 
       <Link href="/expenses/new" asChild>
-        <Pressable style={styles.fab}>
+        <Pressable style={StyleSheet.flatten([styles.fab, { bottom: fabBottom }])}>
           <Text style={styles.fabText}>＋</Text>
         </Pressable>
       </Link>
@@ -68,22 +84,25 @@ const styles = StyleSheet.create({
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: 20,
     paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
+  left: { flex: 1, gap: 2 },
   name: { fontSize: 16, fontWeight: '600' },
+  detail: { fontSize: 13, color: '#666' },
   settled: { fontSize: 13, color: '#666' },
-  amounts: { alignItems: 'flex-end', gap: 2 },
-  amount: { fontSize: 14, fontWeight: '600' },
-  positive: { color: '#1a7f37' },
-  negative: { color: '#d92d20' },
+  amounts: { alignItems: 'flex-end', gap: 6 },
+  amountBlock: { alignItems: 'flex-end' },
+  amountLabel: { fontSize: 12 },
+  amount: { fontSize: 16, fontWeight: '700' },
+  positive: { color: '#34a853' },
+  negative: { color: '#ff3b30' },
   fab: {
     position: 'absolute',
     right: 20,
-    bottom: 24,
     width: 56,
     height: 56,
     borderRadius: 28,

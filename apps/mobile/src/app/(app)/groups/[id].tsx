@@ -162,7 +162,7 @@ export default function GroupDetail() {
       <View style={styles.expensesSection}>
         <View style={styles.expensesHeader}>
           <Text style={styles.fieldLabel}>Expenses</Text>
-          <Link href={`/expenses/new?groupId=${id}`} asChild>
+          <Link href={`/expenses/new/details?groupId=${id}`} asChild>
             <Pressable>
               <Text style={styles.addExpenseLink}>Add expense</Text>
             </Pressable>
