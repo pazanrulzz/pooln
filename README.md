@@ -56,3 +56,5 @@ docker/
 ## License
 
 [MIT](./LICENSE)
+
+FOR FRIENDS by FRIENDS ♡
