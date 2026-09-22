@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
   Pressable,
@@ -82,6 +82,8 @@ interface Props {
   onSubmit: (values: ExpenseFormValues) => void;
   /** The group's full roster, when this expense belongs to a group — restricts participant selection to it. */
   groupMembers?: ParticipantRef[];
+  /** Rendered as the first thing inside the form's own scroll view (e.g. a group picker) — kept inside rather than a sibling scroll view, which fights it for height on web. */
+  topContent?: ReactNode;
 }
 
 export function ExpenseForm({
@@ -92,6 +94,7 @@ export function ExpenseForm({
   submitError,
   onSubmit,
   groupMembers,
+  topContent,
 }: Props) {
   const [description, setDescription] = useState(initialValues.description);
   const [amountText, setAmountText] = useState(initialValues.amountText);
@@ -151,6 +154,7 @@ export function ExpenseForm({
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
+      {topContent}
       <Text style={styles.fieldLabel}>Description</Text>
       <TextInput
         style={styles.input}
