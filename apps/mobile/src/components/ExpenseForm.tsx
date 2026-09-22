@@ -1,13 +1,6 @@
 import { useState } from 'react';
-import {
-  ActivityIndicator,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Button, Text as UIText, TextInput as UITextInput } from '@expo/ui';
 import type { CreateExpenseInput, ExpenseDTO, SplitType } from '@pooln/shared';
 import { minorUnitsToText, parseSplitValue, textToMinorUnits } from '../lib/money';
 import { ParticipantPicker } from './ParticipantPicker';
@@ -146,37 +139,41 @@ export function ExpenseForm({
       splitType,
       splitValues,
       notes,
+      groupId: initialValues.groupId,
     });
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.fieldLabel}>Description</Text>
-      <TextInput
+      <UITextInput
         style={styles.input}
+        textStyle={styles.inputText}
         placeholder="Dinner, rent, taxi..."
-        value={description}
+        defaultValue={description}
         onChangeText={setDescription}
       />
 
       <View style={styles.amountRow}>
         <View style={styles.amountField}>
           <Text style={styles.fieldLabel}>Amount</Text>
-          <TextInput
+          <UITextInput
             style={styles.input}
+            textStyle={styles.inputText}
             placeholder="0.00"
             keyboardType="decimal-pad"
-            value={amountText}
+            defaultValue={amountText}
             onChangeText={setAmountText}
           />
         </View>
         <View style={styles.currencyField}>
           <Text style={styles.fieldLabel}>Currency</Text>
-          <TextInput
+          <UITextInput
             style={styles.input}
+            textStyle={styles.inputText}
             autoCapitalize="characters"
             maxLength={3}
-            value={currency}
+            defaultValue={currency}
             onChangeText={(text) => setCurrency(text.toUpperCase())}
           />
         </View>
@@ -200,15 +197,21 @@ export function ExpenseForm({
 
       <Text style={styles.fieldLabel}>Paid by</Text>
       <View style={styles.payerRow}>
-        {participants.map((p) => (
-          <Text
-            key={p.id}
-            onPress={() => setPayerId(p.id)}
-            style={[styles.payerOption, payerId === p.id && styles.payerOptionActive]}
-          >
-            {p.id === currentUserId ? 'You' : p.displayName}
-          </Text>
-        ))}
+        {participants.map((p) => {
+          const isActive = payerId === p.id;
+          return (
+            <Button
+              key={p.id}
+              variant="text"
+              onPress={() => setPayerId(p.id)}
+              style={isActive ? styles.payerOptionActive : styles.payerOption}
+            >
+              <UIText textStyle={isActive ? styles.payerTextActive : styles.payerText}>
+                {p.id === currentUserId ? 'You' : p.displayName}
+              </UIText>
+            </Button>
+          );
+        })}
       </View>
 
       {amountMinorUnits !== null && amountMinorUnits > 0 && (
@@ -224,18 +227,21 @@ export function ExpenseForm({
       )}
 
       <Text style={styles.fieldLabel}>Notes (optional)</Text>
-      <TextInput
-        style={[styles.input, styles.notesInput]}
+      <UITextInput
+        style={{ ...styles.input, ...styles.notesInput }}
+        textStyle={styles.inputText}
         multiline
-        value={notes}
+        defaultValue={notes}
         onChangeText={setNotes}
       />
 
       {(formError ?? submitError) && <Text style={styles.error}>{formError ?? submitError}</Text>}
 
-      <Pressable style={styles.submitButton} onPress={handleSubmit} disabled={isSubmitting}>
-        {isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={styles.submitText}>{submitLabel}</Text>}
-      </Pressable>
+      <View style={styles.submitBox}>
+        <Button variant="text" onPress={handleSubmit} disabled={isSubmitting} style={styles.submitButton}>
+          {isSubmitting ? <ActivityIndicator color="#fff" /> : <UIText textStyle={styles.submitText}>{submitLabel}</UIText>}
+        </Button>
+      </View>
     </ScrollView>
   );
 }
@@ -249,9 +255,10 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 16,
+    backgroundColor: '#fff',
   },
-  notesInput: { minHeight: 60, textAlignVertical: 'top' },
+  inputText: { fontSize: 16, color: '#000' },
+  notesInput: { height: 60 },
   amountRow: { flexDirection: 'row', gap: 12 },
   amountField: { flex: 2 },
   currencyField: { flex: 1 },
@@ -262,22 +269,24 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    fontSize: 13,
-    overflow: 'hidden',
+    backgroundColor: '#fff',
   },
   payerOptionActive: {
     backgroundColor: '#208aef',
     borderColor: '#208aef',
-    color: '#fff',
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
+  payerText: { fontSize: 13, color: '#000' },
+  payerTextActive: { fontSize: 13, color: '#fff' },
   error: { color: '#d92d20', fontSize: 13 },
+  submitBox: { marginTop: 8, marginBottom: 40 },
   submitButton: {
     backgroundColor: '#208aef',
     borderRadius: 8,
     paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-    marginBottom: 40,
   },
   submitText: { color: '#fff', fontWeight: '600', fontSize: 16 },
 });

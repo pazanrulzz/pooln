@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Button, Host, Text as UIText, TextInput as UITextInput } from '@expo/ui';
 import { Link, router, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -106,103 +107,127 @@ export default function GroupDetail() {
   const participants: ParticipantRef[] = group.members.map((m) => ({ id: m.userId, displayName: m.displayName }));
 
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      {isRenaming ? (
-        <View style={styles.renameRow}>
-          <TextInput style={styles.renameInput} value={nameDraft} onChangeText={setNameDraft} autoFocus />
-          <Pressable
-            style={styles.renameButton}
-            onPress={() => renameMutation.mutate(nameDraft.trim())}
-            disabled={renameMutation.isPending || !nameDraft.trim()}
-          >
-            <Text style={styles.renameButtonText}>Save</Text>
-          </Pressable>
-          <Pressable style={styles.renameCancel} onPress={() => setIsRenaming(false)}>
-            <Text style={styles.renameCancelText}>Cancel</Text>
-          </Pressable>
-        </View>
-      ) : (
-        <View style={styles.titleRow}>
-          <Text style={styles.name}>{group.name}</Text>
-          <Pressable onPress={startRenaming}>
-            <Text style={styles.renameLink}>Rename</Text>
-          </Pressable>
-        </View>
-      )}
+    <Host style={styles.host} colorScheme="light" ignoreSafeArea="all">
+      <ScrollView contentContainerStyle={styles.container}>
+        {isRenaming ? (
+          <View style={styles.renameRow}>
+            <View style={styles.renameInputFlex}>
+              <UITextInput
+                style={styles.renameInput}
+                textStyle={styles.renameInputText}
+                defaultValue={nameDraft}
+                onChangeText={setNameDraft}
+                autoFocus
+              />
+            </View>
+            <Button
+              variant="text"
+              onPress={() => renameMutation.mutate(nameDraft.trim())}
+              disabled={renameMutation.isPending || !nameDraft.trim()}
+              style={styles.renameButton}
+            >
+              <UIText textStyle={styles.renameButtonText}>Save</UIText>
+            </Button>
+            <Button variant="text" onPress={() => setIsRenaming(false)} style={styles.renameCancel}>
+              <UIText textStyle={styles.renameCancelText}>Cancel</UIText>
+            </Button>
+          </View>
+        ) : (
+          <View style={styles.titleRow}>
+            <UIText textStyle={styles.nameText}>{group.name}</UIText>
+            <Button variant="text" onPress={startRenaming} style={styles.renameLinkButton}>
+              <UIText textStyle={styles.renameLinkText}>Rename</UIText>
+            </Button>
+          </View>
+        )}
 
-      <ParticipantPicker
-        label="Members"
-        participants={participants}
-        currentUserId={me.id}
-        onAdd={(user) => addMemberMutation.mutate(user.id)}
-        onRemove={(userId) => removeMemberMutation.mutate(userId)}
-      />
+        <ParticipantPicker
+          label="Members"
+          participants={participants}
+          currentUserId={me.id}
+          onAdd={(user) => addMemberMutation.mutate(user.id)}
+          onRemove={(userId) => removeMemberMutation.mutate(userId)}
+        />
 
-      <View style={styles.inviteSection}>
-        <Text style={styles.fieldLabel}>Invite people</Text>
-        <View style={styles.inviteRow}>
-          <Pressable
-            style={styles.inviteButton}
-            onPress={() => shareInviteMutation.mutate()}
-            disabled={shareInviteMutation.isPending}
-          >
-            {shareInviteMutation.isPending ? (
-              <ActivityIndicator color="#fff" />
-            ) : (
-              <Text style={styles.inviteButtonText}>Share invite link</Text>
-            )}
-          </Pressable>
-          <Pressable onPress={confirmResetInvite} disabled={resetInviteMutation.isPending}>
-            <Text style={styles.resetLink}>Reset link</Text>
-          </Pressable>
+        <View style={styles.inviteSection}>
+          <Text style={styles.fieldLabel}>Invite people</Text>
+          <View style={styles.inviteRow}>
+            <Button
+              variant="text"
+              onPress={() => shareInviteMutation.mutate()}
+              disabled={shareInviteMutation.isPending}
+              style={styles.inviteButton}
+            >
+              {shareInviteMutation.isPending ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <UIText textStyle={styles.inviteButtonText}>Share invite link</UIText>
+              )}
+            </Button>
+            <Button
+              variant="text"
+              onPress={confirmResetInvite}
+              disabled={resetInviteMutation.isPending}
+              style={styles.resetLinkButton}
+            >
+              <UIText textStyle={styles.resetLinkText}>Reset link</UIText>
+            </Button>
+          </View>
+          {inviteStatus && <Text style={styles.inviteStatus}>{inviteStatus}</Text>}
         </View>
-        {inviteStatus && <Text style={styles.inviteStatus}>{inviteStatus}</Text>}
-      </View>
 
-      <View style={styles.expensesSection}>
-        <View style={styles.expensesHeader}>
-          <Text style={styles.fieldLabel}>Expenses</Text>
-          <Link href={`/expenses/new/details?groupId=${id}`} asChild>
-            <Pressable>
-              <Text style={styles.addExpenseLink}>Add expense</Text>
-            </Pressable>
-          </Link>
+        <View style={styles.expensesSection}>
+          <View style={styles.expensesHeader}>
+            <Text style={styles.fieldLabel}>Expenses</Text>
+            <Button
+              variant="text"
+              onPress={() => router.push(`/expenses/new/details?groupId=${id}`)}
+              style={styles.addExpenseButton}
+            >
+              <UIText textStyle={styles.addExpenseLinkText}>Add expense</UIText>
+            </Button>
+          </View>
+          {expensesData?.expenses.length === 0 && <Text style={styles.empty}>No expenses yet.</Text>}
+          {expensesData?.expenses.map((expense) => (
+            <Link key={expense.id} href={`/expenses/${expense.id}`} asChild>
+              <Pressable style={styles.expenseRow}>
+                <Text style={styles.expenseDescription}>{expense.description}</Text>
+                <Text style={styles.expenseAmount}>{formatMoney(expense.amountMinorUnits, expense.currency)}</Text>
+              </Pressable>
+            </Link>
+          ))}
         </View>
-        {expensesData?.expenses.length === 0 && <Text style={styles.empty}>No expenses yet.</Text>}
-        {expensesData?.expenses.map((expense) => (
-          <Link key={expense.id} href={`/expenses/${expense.id}`} asChild>
-            <Pressable style={styles.expenseRow}>
-              <Text style={styles.expenseDescription}>{expense.description}</Text>
-              <Text style={styles.expenseAmount}>{formatMoney(expense.amountMinorUnits, expense.currency)}</Text>
-            </Pressable>
-          </Link>
-        ))}
-      </View>
 
-      <Pressable style={styles.deleteButton} onPress={confirmDelete} disabled={deleteMutation.isPending}>
-        <Text style={styles.deleteButtonText}>Delete group</Text>
-      </Pressable>
-    </ScrollView>
+        <View style={styles.deleteBox}>
+          <Button variant="text" onPress={confirmDelete} disabled={deleteMutation.isPending} style={styles.deleteButton}>
+            <UIText textStyle={styles.deleteButtonText}>Delete group</UIText>
+          </Button>
+        </View>
+      </ScrollView>
+    </Host>
   );
 }
 
 const styles = StyleSheet.create({
+  host: { flex: 1 },
   container: { padding: 20, gap: 16 },
   spinner: { marginTop: 40 },
   error: { color: '#d92d20', padding: 20 },
   titleRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  name: { fontSize: 22, fontWeight: '700' },
-  renameLink: { color: '#208aef', fontWeight: '600', fontSize: 13 },
+  nameText: { fontSize: 22, fontWeight: '700', color: '#000' },
+  renameLinkButton: { paddingHorizontal: 0, paddingVertical: 0 },
+  renameLinkText: { color: '#208aef', fontWeight: '600', fontSize: 13 },
   renameRow: { flexDirection: 'row', gap: 8, alignItems: 'center' },
+  renameInputFlex: { flex: 1 },
   renameInput: {
-    flex: 1,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    fontSize: 18,
+    backgroundColor: '#fff',
   },
+  renameInputText: { fontSize: 18, color: '#000' },
   renameButton: {
     backgroundColor: '#208aef',
     borderRadius: 8,
@@ -222,11 +247,13 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   inviteButtonText: { color: '#fff', fontWeight: '600' },
-  resetLink: { color: '#d92d20', fontSize: 13 },
+  resetLinkButton: { paddingHorizontal: 0, paddingVertical: 0 },
+  resetLinkText: { color: '#d92d20', fontSize: 13 },
   inviteStatus: { color: '#666', fontSize: 13 },
   expensesSection: { gap: 4 },
   expensesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  addExpenseLink: { color: '#208aef', fontWeight: '600', fontSize: 13 },
+  addExpenseButton: { paddingHorizontal: 0, paddingVertical: 0 },
+  addExpenseLinkText: { color: '#208aef', fontWeight: '600', fontSize: 13 },
   empty: { color: '#666', fontSize: 13, paddingVertical: 8 },
   expenseRow: {
     flexDirection: 'row',
@@ -237,12 +264,11 @@ const styles = StyleSheet.create({
   },
   expenseDescription: { fontSize: 15 },
   expenseAmount: { color: '#666' },
+  deleteBox: { marginTop: 12 },
   deleteButton: {
     borderRadius: 8,
     paddingVertical: 12,
-    alignItems: 'center',
     backgroundColor: '#fdecea',
-    marginTop: 12,
   },
   deleteButtonText: { fontWeight: '600', color: '#d92d20' },
 });

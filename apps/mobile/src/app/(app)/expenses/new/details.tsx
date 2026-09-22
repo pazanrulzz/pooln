@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
 import { Text, StyleSheet } from 'react-native';
+import { Host } from '@expo/ui';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as authApi from '../../../../api/auth';
@@ -68,28 +69,31 @@ export default function NewExpenseDetails() {
   };
 
   return (
-    <ExpenseForm
-      currentUserId={me.id}
-      submitLabel="Add expense"
-      isSubmitting={mutation.isPending}
-      submitError={submitError}
-      onSubmit={handleSubmit}
-      groupMembers={groupMembers}
-      initialValues={{
-        description: '',
-        amountText: '',
-        currency: me.defaultCurrency,
-        payerId: me.id,
-        participants: groupMembers ?? [{ id: me.id, displayName: me.displayName }, ...pickedParticipants],
-        splitType: 'EQUAL',
-        splitValues: {},
-        notes: '',
-        groupId,
-      }}
-    />
+    <Host style={styles.host} colorScheme="light" ignoreSafeArea="all">
+      <ExpenseForm
+        currentUserId={me.id}
+        submitLabel="Add expense"
+        isSubmitting={mutation.isPending}
+        submitError={submitError}
+        onSubmit={handleSubmit}
+        groupMembers={groupMembers}
+        initialValues={{
+          description: '',
+          amountText: '',
+          currency: me.defaultCurrency,
+          payerId: me.id,
+          participants: groupMembers ?? [{ id: me.id, displayName: me.displayName }, ...pickedParticipants],
+          splitType: 'EQUAL',
+          splitValues: {},
+          notes: '',
+          groupId,
+        }}
+      />
+    </Host>
   );
 }
 
 const styles = StyleSheet.create({
   loading: { padding: 20 },
+  host: { flex: 1 },
 });

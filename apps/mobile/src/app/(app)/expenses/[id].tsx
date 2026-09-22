@@ -1,5 +1,6 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Link, router, useLocalSearchParams } from 'expo-router';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Button, Host, Text as UIText } from '@expo/ui';
+import { router, useLocalSearchParams } from 'expo-router';
 import type { ExpenseParticipantDTO } from '@pooln/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as authApi from '../../../api/auth';
@@ -44,8 +45,8 @@ export default function ExpenseDetail() {
     (expense.payerId === me?.id || p.userId === expense.payerId);
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.description}>{expense.description}</Text>
+    <Host style={styles.container} colorScheme="light" ignoreSafeArea="all">
+      <UIText textStyle={styles.descriptionText}>{expense.description}</UIText>
       <Text style={styles.amount}>{formatMoney(expense.amountMinorUnits, expense.currency)}</Text>
       {expense.notes && <Text style={styles.notes}>{expense.notes}</Text>}
 
@@ -62,27 +63,31 @@ export default function ExpenseDetail() {
               </Text>
             </View>
             {isSettleTarget(p) && (
-              <Link href={`/settle/${p.userId}`} asChild>
-                <Pressable style={styles.settleButton}>
-                  <Text style={styles.settleButtonText}>Settle up</Text>
-                </Pressable>
-              </Link>
+              <Button
+                variant="text"
+                onPress={() => router.push(`/settle/${p.userId}`)}
+                style={styles.settleButton}
+              >
+                <UIText textStyle={styles.settleButtonText}>Settle up</UIText>
+              </Button>
             )}
           </View>
         ))}
       </View>
 
       <View style={styles.actions}>
-        <Link href={`/expenses/${expense.id}/edit`} asChild>
-          <Pressable style={styles.editButton}>
-            <Text style={styles.editButtonText}>Edit</Text>
-          </Pressable>
-        </Link>
-        <Pressable style={styles.deleteButton} onPress={confirmDelete} disabled={deleteMutation.isPending}>
-          <Text style={styles.deleteButtonText}>Delete</Text>
-        </Pressable>
+        <View style={styles.actionFlex}>
+          <Button variant="text" onPress={() => router.push(`/expenses/${expense.id}/edit`)} style={styles.editButton}>
+            <UIText textStyle={styles.editButtonText}>Edit</UIText>
+          </Button>
+        </View>
+        <View style={styles.actionFlex}>
+          <Button variant="text" onPress={confirmDelete} disabled={deleteMutation.isPending} style={styles.deleteButton}>
+            <UIText textStyle={styles.deleteButtonText}>Delete</UIText>
+          </Button>
+        </View>
       </View>
-    </View>
+    </Host>
   );
 }
 
@@ -90,7 +95,7 @@ const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, gap: 12 },
   spinner: { marginTop: 40 },
   error: { color: '#d92d20', padding: 20 },
-  description: { fontSize: 22, fontWeight: '700' },
+  descriptionText: { fontSize: 22, fontWeight: '700', color: '#000' },
   amount: { fontSize: 28, fontWeight: '700' },
   notes: { color: '#666' },
   participants: { marginTop: 12, gap: 8 },
@@ -105,19 +110,16 @@ const styles = StyleSheet.create({
   },
   settleButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   actions: { flexDirection: 'row', gap: 12, marginTop: 24 },
+  actionFlex: { flex: 1 },
   editButton: {
-    flex: 1,
     borderRadius: 8,
     paddingVertical: 12,
-    alignItems: 'center',
     backgroundColor: '#eee',
   },
-  editButtonText: { fontWeight: '600' },
+  editButtonText: { fontWeight: '600', color: '#000' },
   deleteButton: {
-    flex: 1,
     borderRadius: 8,
     paddingVertical: 12,
-    alignItems: 'center',
     backgroundColor: '#fdecea',
   },
   deleteButtonText: { fontWeight: '600', color: '#d92d20' },

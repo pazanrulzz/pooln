@@ -1,7 +1,9 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Button, Host, Text as UIText } from '@expo/ui';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as authApi from '../../../api/auth';
 import { useAuthStore } from '../../../stores/authStore';
+import { GlassToolbar } from '../../../components/GlassToolbar';
 
 export default function Account() {
   const refreshToken = useAuthStore((s) => s.refreshToken);
@@ -26,26 +28,31 @@ export default function Account() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Pooln</Text>
+    <View style={styles.host}>
+      <GlassToolbar title="Account" />
 
-      {isLoading && <ActivityIndicator />}
-      {isError && <Text style={styles.error}>Couldn&apos;t load your profile.</Text>}
-      {user && (
-        <View style={styles.profile}>
-          <Text style={styles.name}>{user.displayName}</Text>
-          <Text style={styles.email}>{user.email}</Text>
-        </View>
-      )}
+      <Host style={styles.container} colorScheme="light" ignoreSafeArea="all">
+        <UIText textStyle={styles.titleText}>Pooln</UIText>
 
-      <Pressable style={styles.button} onPress={handleLogout}>
-        <Text style={styles.buttonText}>Log out</Text>
-      </Pressable>
+        {isLoading && <ActivityIndicator />}
+        {isError && <Text style={styles.error}>Couldn&apos;t load your profile.</Text>}
+        {user && (
+          <View style={styles.profile}>
+            <UIText textStyle={styles.nameText}>{user.displayName}</UIText>
+            <Text style={styles.email}>{user.email}</Text>
+          </View>
+        )}
+
+        <Button variant="text" onPress={handleLogout} style={styles.button}>
+          <UIText textStyle={styles.buttonText}>Log out</UIText>
+        </Button>
+      </Host>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  host: { flex: 1 },
   container: {
     flex: 1,
     alignItems: 'center',
@@ -53,18 +60,20 @@ const styles = StyleSheet.create({
     gap: 12,
     padding: 24,
   },
-  title: {
+  titleText: {
     fontSize: 28,
     fontWeight: '700',
+    color: '#000',
   },
   profile: {
     alignItems: 'center',
     gap: 4,
     marginBottom: 12,
   },
-  name: {
+  nameText: {
     fontSize: 18,
     fontWeight: '600',
+    color: '#000',
   },
   email: {
     color: '#666',
@@ -80,5 +89,6 @@ const styles = StyleSheet.create({
   },
   buttonText: {
     fontWeight: '600',
+    color: '#000',
   },
 });

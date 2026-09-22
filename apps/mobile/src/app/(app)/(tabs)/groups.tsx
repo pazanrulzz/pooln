@@ -4,6 +4,7 @@ import { useQuery } from '@tanstack/react-query';
 import type { GroupDTO } from '@pooln/shared';
 import * as groupsApi from '../../../api/groups';
 import { useTabBarClearance } from '../../../components/FloatingTabBar';
+import { GlassToolbar } from '../../../components/GlassToolbar';
 
 function GroupRow({ group }: { group: GroupDTO }) {
   return (
@@ -26,29 +27,34 @@ export default function GroupsList() {
   const fabBottom = useTabBarClearance();
 
   return (
-    <View style={styles.container}>
-      {isLoading && <ActivityIndicator style={styles.spinner} />}
-      {isError && <Text style={styles.error}>Couldn&apos;t load groups.</Text>}
-      {data && (
-        <FlatList
-          data={data.groups}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <GroupRow group={item} />}
-          ListEmptyComponent={<Text style={styles.empty}>No groups yet. Create one to get started.</Text>}
-          contentContainerStyle={data.groups.length === 0 && styles.emptyContainer}
-        />
-      )}
+    <View style={styles.host}>
+      <GlassToolbar title="Groups" />
 
-      <Link href="/groups/new" asChild>
-        <Pressable style={StyleSheet.flatten([styles.fab, { bottom: fabBottom }])}>
-          <Text style={styles.fabText}>＋</Text>
-        </Pressable>
-      </Link>
+      <View style={styles.container}>
+        {isLoading && <ActivityIndicator style={styles.spinner} />}
+        {isError && <Text style={styles.error}>Couldn&apos;t load groups.</Text>}
+        {data && (
+          <FlatList
+            data={data.groups}
+            keyExtractor={(item) => item.id}
+            renderItem={({ item }) => <GroupRow group={item} />}
+            ListEmptyComponent={<Text style={styles.empty}>No groups yet. Create one to get started.</Text>}
+            contentContainerStyle={data.groups.length === 0 && styles.emptyContainer}
+          />
+        )}
+
+        <Link href="/groups/new" asChild>
+          <Pressable style={StyleSheet.flatten([styles.fab, { bottom: fabBottom }])}>
+            <Text style={styles.fabText}>＋</Text>
+          </Pressable>
+        </Link>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  host: { flex: 1 },
   container: { flex: 1 },
   spinner: { marginTop: 40 },
   error: { color: '#d92d20', padding: 20 },

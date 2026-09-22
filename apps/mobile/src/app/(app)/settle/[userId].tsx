@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Button, Host, Text as UIText, TextInput as UITextInput } from '@expo/ui';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as authApi from '../../../api/auth';
@@ -68,77 +69,97 @@ export default function SettleUp() {
   };
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Settle up with {balance.displayName}</Text>
+    <Host style={styles.container} colorScheme="light" ignoreSafeArea="all">
+      <View style={styles.titleBox}>
+        <UIText textStyle={styles.titleText}>{`Settle up with ${balance.displayName}`}</UIText>
+      </View>
 
       <View style={styles.directionRow}>
-        <Text
-          onPress={() => setYouPaidOverride(true)}
-          style={[styles.directionOption, youPaid && styles.directionOptionActive]}
-        >
-          You paid them
-        </Text>
-        <Text
-          onPress={() => setYouPaidOverride(false)}
-          style={[styles.directionOption, !youPaid && styles.directionOptionActive]}
-        >
-          They paid you
-        </Text>
+        <View style={styles.directionFlex}>
+          <Button
+            variant="text"
+            onPress={() => setYouPaidOverride(true)}
+            style={youPaid ? styles.directionOptionActive : styles.directionOption}
+          >
+            <UIText textStyle={youPaid ? styles.directionTextActive : styles.directionText}>You paid them</UIText>
+          </Button>
+        </View>
+        <View style={styles.directionFlex}>
+          <Button
+            variant="text"
+            onPress={() => setYouPaidOverride(false)}
+            style={!youPaid ? styles.directionOptionActive : styles.directionOption}
+          >
+            <UIText textStyle={!youPaid ? styles.directionTextActive : styles.directionText}>They paid you</UIText>
+          </Button>
+        </View>
       </View>
 
       <Text style={styles.fieldLabel}>Amount</Text>
       <View style={styles.amountRow}>
-        <TextInput
-          style={[styles.input, styles.amountInput]}
-          keyboardType="decimal-pad"
-          placeholder="0.00"
-          value={amountText}
-          onChangeText={setAmountOverride}
-        />
-        <TextInput
-          style={[styles.input, styles.currencyInput]}
-          autoCapitalize="characters"
-          maxLength={3}
-          value={currency}
-          onChangeText={(text) => setCurrencyOverride(text.toUpperCase())}
-        />
+        <View style={styles.amountField}>
+          <UITextInput
+            style={styles.input}
+            textStyle={styles.inputText}
+            keyboardType="decimal-pad"
+            placeholder="0.00"
+            defaultValue={amountText}
+            onChangeText={setAmountOverride}
+          />
+        </View>
+        <View style={styles.currencyField}>
+          <UITextInput
+            style={styles.input}
+            textStyle={styles.inputText}
+            autoCapitalize="characters"
+            maxLength={3}
+            defaultValue={currency}
+            onChangeText={(text) => setCurrencyOverride(text.toUpperCase())}
+          />
+        </View>
       </View>
 
       <Text style={styles.fieldLabel}>Note (optional)</Text>
-      <TextInput style={styles.input} value={note} onChangeText={setNote} />
+      <UITextInput style={styles.input} textStyle={styles.inputText} defaultValue={note} onChangeText={setNote} />
 
       {error && <Text style={styles.error}>{error}</Text>}
 
-      <Pressable style={styles.submitButton} onPress={handleSubmit} disabled={mutation.isPending}>
-        {mutation.isPending ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.submitText}>Record settlement</Text>
-        )}
-      </Pressable>
-    </View>
+      <View style={styles.submitBox}>
+        <Button variant="text" onPress={handleSubmit} disabled={mutation.isPending} style={styles.submitButton}>
+          {mutation.isPending ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <UIText textStyle={styles.submitText}>Record settlement</UIText>
+          )}
+        </Button>
+      </View>
+    </Host>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, padding: 20, gap: 12 },
   spinner: { marginTop: 40 },
-  title: { fontSize: 20, fontWeight: '700', marginBottom: 8 },
+  titleBox: { marginBottom: 8 },
+  titleText: { fontSize: 20, fontWeight: '700', color: '#000' },
   directionRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
+  directionFlex: { flex: 1 },
   directionOption: {
-    flex: 1,
-    textAlign: 'center',
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 8,
     paddingVertical: 10,
-    overflow: 'hidden',
+    backgroundColor: '#fff',
   },
   directionOptionActive: {
     backgroundColor: '#208aef',
     borderColor: '#208aef',
-    color: '#fff',
+    borderWidth: 1,
+    borderRadius: 8,
+    paddingVertical: 10,
   },
+  directionText: { textAlign: 'center', color: '#000' },
+  directionTextActive: { textAlign: 'center', color: '#fff' },
   fieldLabel: { fontSize: 13, fontWeight: '600', color: '#666' },
   input: {
     borderWidth: 1,
@@ -146,18 +167,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 16,
+    backgroundColor: '#fff',
   },
+  inputText: { fontSize: 16, color: '#000' },
   amountRow: { flexDirection: 'row', gap: 12 },
-  amountInput: { flex: 2 },
-  currencyInput: { flex: 1 },
+  amountField: { flex: 2 },
+  currencyField: { flex: 1 },
   error: { color: '#d92d20', fontSize: 13 },
+  submitBox: { marginTop: 8 },
   submitButton: {
     backgroundColor: '#208aef',
     borderRadius: 8,
     paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
   },
   submitText: { color: '#fff', fontWeight: '600', fontSize: 16 },
 });

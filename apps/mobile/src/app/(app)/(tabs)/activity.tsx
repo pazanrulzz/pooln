@@ -6,6 +6,7 @@ import * as authApi from '../../../api/auth';
 import * as activityApi from '../../../api/activity';
 import { formatMoney } from '../../../lib/money';
 import { formatRelativeTime } from '../../../lib/time';
+import { GlassToolbar } from '../../../components/GlassToolbar';
 
 function activityKey(item: ActivityItemDTO): string {
   const id = item.type === 'settlement_created' ? item.settlement.id : item.expense.id;
@@ -63,23 +64,28 @@ export default function Activity() {
   });
 
   return (
-    <View style={styles.container}>
-      {isLoading && <ActivityIndicator style={styles.spinner} />}
-      {isError && <Text style={styles.error}>Couldn&apos;t load activity.</Text>}
-      {data && me && (
-        <FlatList
-          data={data.items}
-          keyExtractor={activityKey}
-          renderItem={({ item }) => <ActivityRow item={item} currentUserId={me.id} />}
-          ListEmptyComponent={<Text style={styles.empty}>No activity yet.</Text>}
-          contentContainerStyle={data.items.length === 0 && styles.emptyContainer}
-        />
-      )}
+    <View style={styles.host}>
+      <GlassToolbar title="Activity" />
+
+      <View style={styles.container}>
+        {isLoading && <ActivityIndicator style={styles.spinner} />}
+        {isError && <Text style={styles.error}>Couldn&apos;t load activity.</Text>}
+        {data && me && (
+          <FlatList
+            data={data.items}
+            keyExtractor={activityKey}
+            renderItem={({ item }) => <ActivityRow item={item} currentUserId={me.id} />}
+            ListEmptyComponent={<Text style={styles.empty}>No activity yet.</Text>}
+            contentContainerStyle={data.items.length === 0 && styles.emptyContainer}
+          />
+        )}
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  host: { flex: 1 },
   container: { flex: 1 },
   spinner: { marginTop: 40 },
   error: { color: '#d92d20', padding: 20 },

@@ -26,7 +26,7 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
   });
 
   return (
-    <View style={[styles.wrapper, { bottom: insets.bottom + 8 }]} pointerEvents="box-none">
+    <View style={[styles.wrapper, { bottom: insets.bottom + PILL_BOTTOM_MARGIN }]} pointerEvents="box-none">
       <View style={styles.track}>
         <Animated.View
           style={[styles.highlight, { width: `${100 / segmentCount}%`, left: highlightLeft }]}
@@ -53,8 +53,8 @@ export function FloatingTabBar({ state, descriptors, navigation }: BottomTabBarP
   );
 }
 
-const PILL_HEIGHT = 56;
-const PILL_BOTTOM_MARGIN = 8;
+const PILL_HEIGHT = 70;
+const PILL_BOTTOM_MARGIN = 24;
 
 /** Bottom offset a floating action button on a tab screen needs to clear the pill nav bar,
  * accounting for the device's safe-area inset the same way the bar itself does. */

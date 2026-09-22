@@ -1,4 +1,5 @@
-import { StyleSheet, Text, TextInput, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Button, Text as UIText, TextInput as UITextInput } from '@expo/ui';
 import type { SplitType } from '@pooln/shared';
 import { calculateSplit } from '@pooln/shared';
 import { minorUnitsToText, parseSplitValue } from '../lib/money';
@@ -56,15 +57,19 @@ export function SplitEditor({
     <View style={styles.container}>
       <Text style={styles.label}>Split</Text>
       <View style={styles.typeRow}>
-        {SPLIT_TYPES.map((t) => (
-          <Text
-            key={t.value}
-            onPress={() => onSplitTypeChange(t.value)}
-            style={[styles.typeOption, splitType === t.value && styles.typeOptionActive]}
-          >
-            {t.label}
-          </Text>
-        ))}
+        {SPLIT_TYPES.map((t) => {
+          const isActive = splitType === t.value;
+          return (
+            <Button
+              key={t.value}
+              variant="text"
+              onPress={() => onSplitTypeChange(t.value)}
+              style={isActive ? styles.typeOptionActive : styles.typeOption}
+            >
+              <UIText textStyle={isActive ? styles.typeTextActive : styles.typeText}>{t.label}</UIText>
+            </Button>
+          );
+        })}
       </View>
 
       {participants.map((p) => (
@@ -75,13 +80,16 @@ export function SplitEditor({
           </Text>
           <View style={styles.right}>
             {splitType !== 'EQUAL' && (
-              <TextInput
-                style={styles.input}
-                keyboardType="decimal-pad"
-                placeholder={placeholderFor(splitType)}
-                value={values[p.id] ?? ''}
-                onChangeText={(text) => onValuesChange({ ...values, [p.id]: text })}
-              />
+              <View style={styles.inputBox}>
+                <UITextInput
+                  style={styles.input}
+                  textStyle={styles.inputText}
+                  keyboardType="decimal-pad"
+                  placeholder={placeholderFor(splitType)}
+                  defaultValue={values[p.id] ?? ''}
+                  onChangeText={(text) => onValuesChange({ ...values, [p.id]: text })}
+                />
+              </View>
             )}
             <Text style={styles.owed}>
               {linesByUserId[p.id] ? minorUnitsToText(linesByUserId[p.id]!.owedAmountMinorUnits) : '—'}
@@ -108,14 +116,18 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 12,
     paddingVertical: 6,
-    fontSize: 13,
-    overflow: 'hidden',
+    backgroundColor: '#fff',
   },
   typeOptionActive: {
     backgroundColor: '#208aef',
     borderColor: '#208aef',
-    color: '#fff',
+    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
+  typeText: { fontSize: 13, color: '#000' },
+  typeTextActive: { fontSize: 13, color: '#fff' },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -124,15 +136,16 @@ const styles = StyleSheet.create({
   },
   name: { fontSize: 15, flexShrink: 1 },
   right: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  inputBox: { width: 70 },
   input: {
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 6,
-    width: 70,
-    textAlign: 'right',
+    backgroundColor: '#fff',
   },
+  inputText: { textAlign: 'right', color: '#000' },
   owed: { width: 56, textAlign: 'right', color: '#666' },
   error: { color: '#d92d20', fontSize: 13 },
   hint: { color: '#666', fontSize: 13 },

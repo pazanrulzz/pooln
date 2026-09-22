@@ -1,4 +1,5 @@
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Button, Host, Text as UIText, TextInput as UITextInput } from '@expo/ui';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router, useLocalSearchParams } from 'expo-router';
@@ -34,18 +35,21 @@ export default function SignUp() {
   });
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>Create your account</Text>
+    <Host style={styles.container} colorScheme="light" ignoreSafeArea="all">
+      <View style={styles.titleBox}>
+        <UIText textStyle={styles.titleText}>Create your account</UIText>
+      </View>
 
       <Controller
         control={control}
         name="displayName"
         render={({ field }) => (
-          <TextInput
+          <UITextInput
             style={styles.input}
+            textStyle={styles.inputText}
             placeholder="Name"
             autoComplete="name"
-            value={field.value}
+            defaultValue={field.value}
             onChangeText={field.onChange}
           />
         )}
@@ -56,13 +60,14 @@ export default function SignUp() {
         control={control}
         name="email"
         render={({ field }) => (
-          <TextInput
+          <UITextInput
             style={styles.input}
+            textStyle={styles.inputText}
             placeholder="Email"
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
-            value={field.value}
+            defaultValue={field.value}
             onChangeText={field.onChange}
           />
         )}
@@ -73,12 +78,13 @@ export default function SignUp() {
         control={control}
         name="password"
         render={({ field }) => (
-          <TextInput
+          <UITextInput
             style={styles.input}
+            textStyle={styles.inputText}
             placeholder="Password (min. 8 characters)"
             secureTextEntry
             autoComplete="new-password"
-            value={field.value}
+            defaultValue={field.value}
             onChangeText={field.onChange}
           />
         )}
@@ -91,22 +97,25 @@ export default function SignUp() {
         </Text>
       )}
 
-      <Pressable
-        style={styles.button}
-        onPress={handleSubmit((values) => mutation.mutate(values))}
-        disabled={mutation.isPending}
-      >
-        {mutation.isPending ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.buttonText}>Sign up</Text>
-        )}
-      </Pressable>
+      <View style={styles.buttonBox}>
+        <Button
+          variant="text"
+          onPress={handleSubmit((values) => mutation.mutate(values))}
+          disabled={mutation.isPending}
+          style={styles.button}
+        >
+          {mutation.isPending ? (
+            <ActivityIndicator color="#fff" />
+          ) : (
+            <UIText textStyle={styles.buttonText}>Sign up</UIText>
+          )}
+        </Button>
+      </View>
 
       <Link href="/sign-in" style={styles.link}>
         Already have an account? Sign in
       </Link>
-    </View>
+    </Host>
   );
 }
 
@@ -117,10 +126,11 @@ const styles = StyleSheet.create({
     padding: 24,
     gap: 12,
   },
-  title: {
+  titleBox: { marginBottom: 12 },
+  titleText: {
     fontSize: 28,
     fontWeight: '700',
-    marginBottom: 12,
+    color: '#000',
   },
   input: {
     borderWidth: 1,
@@ -128,18 +138,18 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 14,
     paddingVertical: 12,
-    fontSize: 16,
+    backgroundColor: '#fff',
   },
+  inputText: { fontSize: 16, color: '#000' },
   error: {
     color: '#d92d20',
     fontSize: 13,
   },
+  buttonBox: { marginTop: 8 },
   button: {
     backgroundColor: '#208aef',
     borderRadius: 8,
     paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
   },
   buttonText: {
     color: '#fff',

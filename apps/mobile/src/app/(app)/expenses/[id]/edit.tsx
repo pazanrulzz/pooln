@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { ActivityIndicator, StyleSheet } from 'react-native';
+import { Host } from '@expo/ui';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as authApi from '../../../../api/auth';
@@ -58,18 +59,21 @@ export default function EditExpense() {
   };
 
   return (
-    <ExpenseForm
-      currentUserId={me.id}
-      submitLabel="Save changes"
-      isSubmitting={mutation.isPending}
-      submitError={submitError}
-      onSubmit={handleSubmit}
-      groupMembers={group?.members.map((m) => ({ id: m.userId, displayName: m.displayName }))}
-      initialValues={fromExpenseDTO(expense)}
-    />
+    <Host style={styles.host} colorScheme="light" ignoreSafeArea="all">
+      <ExpenseForm
+        currentUserId={me.id}
+        submitLabel="Save changes"
+        isSubmitting={mutation.isPending}
+        submitError={submitError}
+        onSubmit={handleSubmit}
+        groupMembers={group?.members.map((m) => ({ id: m.userId, displayName: m.displayName }))}
+        initialValues={fromExpenseDTO(expense)}
+      />
+    </Host>
   );
 }
 
 const styles = StyleSheet.create({
   spinner: { marginTop: 40 },
+  host: { flex: 1 },
 });

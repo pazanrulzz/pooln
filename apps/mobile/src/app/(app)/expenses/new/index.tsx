@@ -1,5 +1,6 @@
-import { useMemo, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Host, Text as UIText, TextInput as UITextInput, type TextInputRef } from '@expo/ui';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import * as authApi from '../../../../api/auth';
@@ -46,6 +47,7 @@ export default function PickExpenseParticipants() {
   const [searchError, setSearchError] = useState<string | null>(null);
   const [selectedFriends, setSelectedFriends] = useState<ParticipantRef[]>([]);
   const [selectedGroupId, setSelectedGroupId] = useState<string | undefined>();
+  const queryInputRef = useRef<TextInputRef>(null);
 
   const friends = useMemo<ParticipantRef[]>(
     () => (balances ?? []).map((b) => ({ id: b.userId, displayName: b.displayName })),
@@ -84,6 +86,7 @@ export default function PickExpenseParticipants() {
       setSelectedGroupId(undefined);
       setSelectedFriends((prev) => [...prev, { id: user.id, displayName: user.displayName }]);
       setQuery('');
+      queryInputRef.current?.clear();
       setSearchStatus('idle');
     } catch {
       setSearchError('Something went wrong looking that up.');
@@ -109,12 +112,12 @@ export default function PickExpenseParticipants() {
   }
 
   return (
-    <View style={styles.container}>
+    <Host style={styles.container} colorScheme="light" ignoreSafeArea="all">
       <View style={styles.header}>
         <Pressable onPress={() => router.back()} style={styles.headerButton}>
           <Text style={styles.headerButtonText}>✕</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>Add an expense</Text>
+        <UIText textStyle={styles.headerTitleText}>Add an expense</UIText>
         <Pressable onPress={handleContinue} disabled={!canContinue} style={styles.headerButton}>
           <Text style={[styles.headerButtonText, !canContinue && styles.headerButtonTextDisabled]}>✓</Text>
         </Pressable>
@@ -122,15 +125,19 @@ export default function PickExpenseParticipants() {
 
       <View style={styles.withRow}>
         <Text style={styles.withLabel}>With you and:</Text>
-        <TextInput
-          style={styles.withInput}
-          placeholder="Enter an email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={query}
-          onChangeText={setQuery}
-          onSubmitEditing={handleSearchSubmit}
-        />
+        <View style={styles.withInputFlex}>
+          <UITextInput
+            ref={queryInputRef}
+            style={styles.withInput}
+            textStyle={styles.withInputText}
+            placeholder="Enter an email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            defaultValue={query}
+            onChangeText={setQuery}
+            onSubmitEditing={handleSearchSubmit}
+          />
+        </View>
         {searchStatus === 'loading' && <ActivityIndicator size="small" />}
       </View>
       {searchError && <Text style={styles.error}>{searchError}</Text>}
@@ -174,7 +181,7 @@ export default function PickExpenseParticipants() {
           </>
         )}
       </ScrollView>
-    </View>
+    </Host>
   );
 }
 
@@ -193,7 +200,7 @@ const styles = StyleSheet.create({
   headerButton: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
   headerButtonText: { fontSize: 20 },
   headerButtonTextDisabled: { color: '#ccc' },
-  headerTitle: { fontSize: 16, fontWeight: '600' },
+  headerTitleText: { fontSize: 16, fontWeight: '600', color: '#000' },
   withRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -204,7 +211,9 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   withLabel: { fontSize: 15 },
-  withInput: { flex: 1, fontSize: 15, minWidth: 80 },
+  withInputFlex: { flex: 1 },
+  withInput: { backgroundColor: '#fff' },
+  withInputText: { fontSize: 15, color: '#000' },
   error: { color: '#d92d20', fontSize: 13, paddingHorizontal: 16, paddingTop: 6 },
   chipsRow: {
     flexDirection: 'row',

@@ -1,6 +1,5 @@
 import { Tabs } from 'expo-router/js-tabs';
 import { SymbolView } from 'expo-symbols';
-import { LogoutButton } from '../../../components/LogoutButton';
 import { FloatingTabBar } from '../../../components/FloatingTabBar';
 
 function TabIcon({ name }: { name: Parameters<typeof SymbolView>[0]['name'] }) {
@@ -9,10 +8,7 @@ function TabIcon({ name }: { name: Parameters<typeof SymbolView>[0]['name'] }) {
 
 export default function TabsLayout() {
   return (
-    <Tabs
-      tabBar={(props) => <FloatingTabBar {...props} />}
-      screenOptions={{ headerRight: () => <LogoutButton /> }}
-    >
+    <Tabs tabBar={(props) => <FloatingTabBar {...props} />} screenOptions={{ headerShown: false }}>
       <Tabs.Screen
         name="index"
         options={{
@@ -40,7 +36,6 @@ export default function TabsLayout() {
         name="account"
         options={{
           title: 'Account',
-          headerRight: () => null,
           tabBarIcon: () => (
             <TabIcon name={{ ios: 'person.circle', android: 'account_circle', web: 'account_circle' }} />
           ),

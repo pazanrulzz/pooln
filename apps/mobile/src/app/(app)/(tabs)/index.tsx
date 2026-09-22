@@ -5,6 +5,7 @@ import type { CounterpartBalance } from '@pooln/shared';
 import * as balancesApi from '../../../api/balances';
 import { formatMoney } from '../../../lib/money';
 import { useTabBarClearance } from '../../../components/FloatingTabBar';
+import { GlassToolbar } from '../../../components/GlassToolbar';
 
 function BalanceRow({ balance }: { balance: CounterpartBalance }) {
   return (
@@ -53,29 +54,34 @@ export default function ExpensesList() {
   const fabBottom = useTabBarClearance();
 
   return (
-    <View style={styles.container}>
-      {isLoading && <ActivityIndicator style={styles.spinner} />}
-      {isError && <Text style={styles.error}>Couldn&apos;t load expenses.</Text>}
-      {data && (
-        <FlatList
-          data={data}
-          keyExtractor={(item) => item.userId}
-          renderItem={({ item }) => <BalanceRow balance={item} />}
-          ListEmptyComponent={<Text style={styles.empty}>No expenses yet. Add one to get started.</Text>}
-          contentContainerStyle={data.length === 0 && styles.emptyContainer}
-        />
-      )}
+    <View style={styles.host}>
+      <GlassToolbar title="Expenses" />
 
-      <Link href="/expenses/new" asChild>
-        <Pressable style={StyleSheet.flatten([styles.fab, { bottom: fabBottom }])}>
-          <Text style={styles.fabText}>＋</Text>
-        </Pressable>
-      </Link>
+      <View style={styles.container}>
+        {isLoading && <ActivityIndicator style={styles.spinner} />}
+        {isError && <Text style={styles.error}>Couldn&apos;t load expenses.</Text>}
+        {data && (
+          <FlatList
+            data={data}
+            keyExtractor={(item) => item.userId}
+            renderItem={({ item }) => <BalanceRow balance={item} />}
+            ListEmptyComponent={<Text style={styles.empty}>No expenses yet. Add one to get started.</Text>}
+            contentContainerStyle={data.length === 0 && styles.emptyContainer}
+          />
+        )}
+
+        <Link href="/expenses/new" asChild>
+          <Pressable style={StyleSheet.flatten([styles.fab, { bottom: fabBottom }])}>
+            <Text style={styles.fabText}>＋</Text>
+          </Pressable>
+        </Link>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  host: { flex: 1 },
   container: { flex: 1 },
   spinner: { marginTop: 40 },
   error: { color: '#d92d20', padding: 20 },

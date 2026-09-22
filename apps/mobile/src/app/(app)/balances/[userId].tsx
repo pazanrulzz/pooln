@@ -1,5 +1,6 @@
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Link, useLocalSearchParams } from 'expo-router';
+import { Button, Host, Text as UIText } from '@expo/ui';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import * as balancesApi from '../../../api/balances';
 import * as expensesApi from '../../../api/expenses';
@@ -23,9 +24,9 @@ export default function BalanceDetail() {
   }
 
   return (
-    <View style={styles.container}>
+    <Host style={styles.container} colorScheme="light" ignoreSafeArea="all">
       <View style={styles.header}>
-        <Text style={styles.name}>{balance.displayName}</Text>
+        <UIText textStyle={styles.nameText}>{balance.displayName}</UIText>
         {balance.balances.length === 0 && <Text style={styles.settled}>Settled up</Text>}
         {balance.balances.map((line) => (
           <Text
@@ -37,11 +38,11 @@ export default function BalanceDetail() {
           </Text>
         ))}
 
-        <Link href={`/settle/${userId}`} asChild>
-          <Pressable style={styles.settleButton}>
-            <Text style={styles.settleButtonText}>Settle up</Text>
-          </Pressable>
-        </Link>
+        <View style={styles.settleBox}>
+          <Button variant="text" onPress={() => router.push(`/settle/${userId}`)} style={styles.settleButton}>
+            <UIText textStyle={styles.settleButtonText}>Settle up</UIText>
+          </Button>
+        </View>
       </View>
 
       <FlatList
@@ -57,7 +58,7 @@ export default function BalanceDetail() {
         )}
         ListEmptyComponent={<Text style={styles.empty}>No shared expenses yet.</Text>}
       />
-    </View>
+    </Host>
   );
 }
 
@@ -71,13 +72,13 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  name: { fontSize: 20, fontWeight: '700' },
+  nameText: { fontSize: 20, fontWeight: '700', color: '#000' },
   net: { fontSize: 18, fontWeight: '600' },
   settled: { fontSize: 16, color: '#666' },
   positive: { color: '#1a7f37' },
   negative: { color: '#d92d20' },
+  settleBox: { marginTop: 8 },
   settleButton: {
-    marginTop: 8,
     backgroundColor: '#208aef',
     borderRadius: 8,
     paddingVertical: 10,

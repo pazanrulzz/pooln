@@ -1,5 +1,6 @@
-import { useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { useRef, useState } from 'react';
+import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { Button, Text as UIText, TextInput as UITextInput, type TextInputRef } from '@expo/ui';
 import { searchUserByEmail } from '../api/users';
 import type { ParticipantRef } from './participant';
 
@@ -15,6 +16,7 @@ export function ParticipantPicker({ participants, currentUserId, onAdd, onRemove
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<TextInputRef>(null);
 
   const handleAdd = async () => {
     const trimmed = email.trim().toLowerCase();
@@ -36,6 +38,7 @@ export function ParticipantPicker({ participants, currentUserId, onAdd, onRemove
       }
       onAdd(user);
       setEmail('');
+      inputRef.current?.clear();
       setStatus('idle');
     } catch {
       setError('Something went wrong looking that up.');
@@ -54,26 +57,30 @@ export function ParticipantPicker({ participants, currentUserId, onAdd, onRemove
             {p.id === currentUserId ? ' (you)' : ''}
           </Text>
           {p.id !== currentUserId && (
-            <Pressable onPress={() => onRemove(p.id)}>
-              <Text style={styles.remove}>Remove</Text>
-            </Pressable>
+            <Button variant="text" onPress={() => onRemove(p.id)} style={styles.removeButton}>
+              <UIText textStyle={styles.removeText}>Remove</UIText>
+            </Button>
           )}
         </View>
       ))}
 
       <View style={styles.addRow}>
-        <TextInput
-          style={styles.input}
-          placeholder="Add by email"
-          autoCapitalize="none"
-          keyboardType="email-address"
-          value={email}
-          onChangeText={setEmail}
-          onSubmitEditing={handleAdd}
-        />
-        <Pressable style={styles.addButton} onPress={handleAdd} disabled={status === 'loading'}>
-          {status === 'loading' ? <ActivityIndicator /> : <Text style={styles.addButtonText}>Add</Text>}
-        </Pressable>
+        <View style={styles.inputFlex}>
+          <UITextInput
+            ref={inputRef}
+            style={styles.input}
+            textStyle={styles.inputText}
+            placeholder="Add by email"
+            autoCapitalize="none"
+            keyboardType="email-address"
+            defaultValue={email}
+            onChangeText={setEmail}
+            onSubmitEditing={handleAdd}
+          />
+        </View>
+        <Button variant="text" onPress={handleAdd} disabled={status === 'loading'} style={styles.addButton}>
+          {status === 'loading' ? <ActivityIndicator /> : <UIText textStyle={styles.addButtonText}>Add</UIText>}
+        </Button>
       </View>
       {error && <Text style={styles.error}>{error}</Text>}
     </View>
@@ -90,22 +97,25 @@ const styles = StyleSheet.create({
     paddingVertical: 6,
   },
   name: { fontSize: 15 },
-  remove: { color: '#d92d20', fontSize: 13 },
+  removeButton: { paddingHorizontal: 0, paddingVertical: 0 },
+  removeText: { color: '#d92d20', fontSize: 13 },
   addRow: { flexDirection: 'row', gap: 8 },
+  inputFlex: { flex: 1 },
   input: {
-    flex: 1,
     borderWidth: 1,
     borderColor: '#ccc',
     borderRadius: 8,
     paddingHorizontal: 12,
     paddingVertical: 10,
+    backgroundColor: '#fff',
   },
+  inputText: { fontSize: 16, color: '#000' },
   addButton: {
     backgroundColor: '#eee',
     borderRadius: 8,
     paddingHorizontal: 16,
-    justifyContent: 'center',
+    paddingVertical: 10,
   },
-  addButtonText: { fontWeight: '600' },
+  addButtonText: { fontWeight: '600', color: '#000' },
   error: { color: '#d92d20', fontSize: 13 },
 });
