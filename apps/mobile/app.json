@@ -6,10 +6,9 @@
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "pooln",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "automatic",
     "ios": {
-      "icon": "./assets/expo.icon",
-      "bundleIdentifier": "com.pazanrulzz.pooln"
+      "icon": "./assets/expo.icon"
     },
     "android": {
       "adaptiveIcon": {
