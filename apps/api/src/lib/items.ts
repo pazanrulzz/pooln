@@ -52,6 +52,12 @@ export interface ExpenseItem extends BaseItem {
   createdAt: string;
   updatedAt: string;
   deletedAt?: string;
+  // Omitted for standalone expenses. When set, GSI1PK/GSI1SK are also set
+  // (see groupExpenseIndexKeys in keys.ts) so the group's expense list can
+  // query this item directly.
+  groupId?: string;
+  GSI1PK?: string;
+  GSI1SK?: string;
 }
 
 export interface ExpenseParticipantItem extends BaseItem {

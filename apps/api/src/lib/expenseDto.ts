@@ -17,6 +17,7 @@ export function toExpenseDTO({ expense, participants }: ExpenseWithParticipants,
     createdById: expense.createdById,
     createdAt: expense.createdAt,
     updatedAt: expense.updatedAt,
+    groupId: expense.groupId ?? null,
     participants: participants.map((p) => {
       const user = usersById.get(p.userId);
       return {

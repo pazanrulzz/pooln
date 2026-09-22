@@ -91,3 +91,13 @@ export function userGroupIndexKeys(userId: string, isoJoinedAt: string, groupId:
 export function groupInviteKey(token: string) {
   return { PK: `GROUPINVITE#${token}`, SK: 'METADATA' };
 }
+
+/**
+ * GSI1 keys for a grouped expense's metadata item — "what expenses are in
+ * this group". Set directly on the ExpenseItem itself (not a separate
+ * pointer item), since the metadata item already has everything a group
+ * expense listing needs.
+ */
+export function groupExpenseIndexKeys(groupId: string, isoDate: string, expenseId: string) {
+  return { GSI1PK: groupPK(groupId), GSI1SK: `${GSI1SK_EXPENSE_PREFIX}${isoDate}#${expenseId}` };
+}

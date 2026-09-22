@@ -11,6 +11,7 @@ import {
 import type { CreateExpenseInput, ExpenseDTO, SplitType } from '@pooln/shared';
 import { minorUnitsToText, parseSplitValue, textToMinorUnits } from '../lib/money';
 import { ParticipantPicker } from './ParticipantPicker';
+import { GroupMemberSelector } from './GroupMemberSelector';
 import { SplitEditor } from './SplitEditor';
 import type { ParticipantRef } from './participant';
 
@@ -23,6 +24,7 @@ export interface ExpenseFormValues {
   splitType: SplitType;
   splitValues: Record<string, string>;
   notes: string;
+  groupId?: string;
 }
 
 /** Converts form state (text inputs) into the API's wire format. */
@@ -37,6 +39,7 @@ export function toCreateExpenseInput(values: ExpenseFormValues): CreateExpenseIn
     splitType: values.splitType,
     payerId: values.payerId,
     notes: values.notes.trim() === '' ? undefined : values.notes.trim(),
+    groupId: values.groupId,
     participants: values.participants.map((p) => ({
       userId: p.id,
       value: parseSplitValue(values.splitType, values.splitValues[p.id]),
@@ -66,6 +69,7 @@ export function fromExpenseDTO(expense: ExpenseDTO): ExpenseFormValues {
     splitType: expense.splitType,
     splitValues,
     notes: expense.notes ?? '',
+    groupId: expense.groupId ?? undefined,
   };
 }
 
@@ -76,6 +80,8 @@ interface Props {
   isSubmitting: boolean;
   submitError: string | null;
   onSubmit: (values: ExpenseFormValues) => void;
+  /** The group's full roster, when this expense belongs to a group — restricts participant selection to it. */
+  groupMembers?: ParticipantRef[];
 }
 
 export function ExpenseForm({
@@ -85,6 +91,7 @@ export function ExpenseForm({
   isSubmitting,
   submitError,
   onSubmit,
+  groupMembers,
 }: Props) {
   const [description, setDescription] = useState(initialValues.description);
   const [amountText, setAmountText] = useState(initialValues.amountText);
@@ -105,6 +112,15 @@ export function ExpenseForm({
   const handleRemoveParticipant = (userId: string) => {
     setParticipants((prev) => prev.filter((p) => p.id !== userId));
     if (payerId === userId) setPayerId(currentUserId);
+  };
+
+  const handleToggleGroupMember = (userId: string) => {
+    if (participants.some((p) => p.id === userId)) {
+      handleRemoveParticipant(userId);
+      return;
+    }
+    const member = groupMembers?.find((m) => m.id === userId);
+    if (member) handleAddParticipant(member);
   };
 
   const handleSubmit = () => {
@@ -166,12 +182,21 @@ export function ExpenseForm({
         </View>
       </View>
 
-      <ParticipantPicker
-        participants={participants}
-        currentUserId={currentUserId}
-        onAdd={handleAddParticipant}
-        onRemove={handleRemoveParticipant}
-      />
+      {groupMembers ? (
+        <GroupMemberSelector
+          members={groupMembers}
+          selectedIds={participants.map((p) => p.id)}
+          currentUserId={currentUserId}
+          onToggle={handleToggleGroupMember}
+        />
+      ) : (
+        <ParticipantPicker
+          participants={participants}
+          currentUserId={currentUserId}
+          onAdd={handleAddParticipant}
+          onRemove={handleRemoveParticipant}
+        />
+      )}
 
       <Text style={styles.fieldLabel}>Paid by</Text>
       <View style={styles.payerRow}>

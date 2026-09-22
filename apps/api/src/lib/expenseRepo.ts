@@ -8,6 +8,8 @@ import {
   expenseMetaKey,
   expenseParticipantKey,
   expensePK,
+  groupExpenseIndexKeys,
+  groupPK,
   userExpenseIndexKeys,
   userPK,
 } from './keys.js';
@@ -56,7 +58,7 @@ function buildParticipantItems(
 }
 
 export async function createExpense(
-  input: ExpenseInput & { createdById: string },
+  input: ExpenseInput & { createdById: string; groupId?: string },
 ): Promise<ExpenseWithParticipants> {
   const id = randomUUID();
   const now = new Date().toISOString();
@@ -75,6 +77,8 @@ export async function createExpense(
     createdById: input.createdById,
     createdAt: now,
     updatedAt: now,
+    groupId: input.groupId,
+    ...(input.groupId ? groupExpenseIndexKeys(input.groupId, date, id) : {}),
   };
 
   const participants = buildParticipantItems(id, date, input.participants);
@@ -137,6 +141,10 @@ export async function updateExpense(id: string, input: ExpenseInput): Promise<Ex
     date,
     notes: input.notes,
     updatedAt: now,
+    // groupId is immutable — this input type has no groupId field at all,
+    // so it always comes from the existing item (spread above); re-derive
+    // GSI1PK/GSI1SK here only to keep the date portion in sync.
+    ...(existing.expense.groupId ? groupExpenseIndexKeys(existing.expense.groupId, date, id) : {}),
   };
 
   await dynamo.send(
@@ -154,10 +162,20 @@ export async function updateExpense(id: string, input: ExpenseInput): Promise<Ex
   return { expense, participants: newParticipants };
 }
 
-/** Also removes participant pointers so they stop showing up in GSI1 listings/totals. */
+/**
+ * Also removes participant pointers so they stop showing up in GSI1
+ * listings/totals. For a grouped expense, also strips GSI1PK/GSI1SK off the
+ * metadata item itself — DynamoDB GSIs sync off attribute *presence*, not
+ * deletedAt, so leaving them would keep the expense in the group's listing
+ * forever.
+ */
 export async function softDeleteExpense(id: string): Promise<void> {
   const existing = await getExpenseWithParticipants(id);
   if (!existing) return;
+
+  const updateExpression = existing.expense.groupId
+    ? 'SET deletedAt = :now REMOVE GSI1PK, GSI1SK'
+    : 'SET deletedAt = :now';
 
   await dynamo.send(
     new TransactWriteCommand({
@@ -166,7 +184,7 @@ export async function softDeleteExpense(id: string): Promise<void> {
           Update: {
             TableName: TABLE_NAME,
             Key: expenseMetaKey(id),
-            UpdateExpression: 'SET deletedAt = :now',
+            UpdateExpression: updateExpression,
             ExpressionAttributeValues: { ':now': new Date().toISOString() },
           },
         },
@@ -217,4 +235,23 @@ export async function getAllExpensesForUser(userId: string, counterpartId?: stri
   const matched = await getMatchedExpensePointers(userId, counterpartId);
   const items = await Promise.all(matched.map((p) => getExpenseWithParticipants(p.expenseId)));
   return items.filter((e): e is ExpenseWithParticipants => e !== null);
+}
+
+export async function listExpensesForGroup(
+  groupId: string,
+  opts: { limit: number; offset: number },
+): Promise<{ items: ExpenseWithParticipants[]; total: number }> {
+  const metadataPointers = await queryAllPages<ExpenseItem>({
+    TableName: TABLE_NAME,
+    IndexName: 'GSI1',
+    KeyConditionExpression: 'GSI1PK = :pk AND begins_with(GSI1SK, :prefix)',
+    ExpressionAttributeValues: { ':pk': groupPK(groupId), ':prefix': GSI1SK_EXPENSE_PREFIX },
+  });
+
+  const sorted = metadataPointers
+    .filter((e) => !e.deletedAt)
+    .sort((a, b) => b.GSI1SK!.localeCompare(a.GSI1SK!));
+  const page = sorted.slice(opts.offset, opts.offset + opts.limit);
+  const items = await Promise.all(page.map((e) => getExpenseWithParticipants(e.id)));
+  return { items: items.filter((e): e is ExpenseWithParticipants => e !== null), total: sorted.length };
 }

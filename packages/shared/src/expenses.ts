@@ -21,6 +21,10 @@ export const createExpenseSchema = z
     // TransactWriteItems caps at 100 items/transaction; a create/update
     // writes 1 metadata item + N participant items.
     participants: z.array(expenseParticipantInputSchema).min(2).max(99),
+    // Only meaningful on create — the server ignores this on update, an
+    // expense's group is immutable once set. Restricts participants to that
+    // group's members (enforced server-side).
+    groupId: z.uuid().optional(),
   })
   .refine(
     (data) => new Set(data.participants.map((p) => p.userId)).size === data.participants.length,
@@ -37,11 +41,17 @@ export type CreateExpenseInput = z.infer<typeof createExpenseSchema>;
 export const updateExpenseSchema = createExpenseSchema;
 export type UpdateExpenseInput = z.infer<typeof updateExpenseSchema>;
 
-export const listExpensesQuerySchema = z.object({
-  limit: z.coerce.number().int().positive().max(100).default(20),
-  offset: z.coerce.number().int().min(0).default(0),
-  withUserId: z.uuid().optional(),
-});
+export const listExpensesQuerySchema = z
+  .object({
+    limit: z.coerce.number().int().positive().max(100).default(20),
+    offset: z.coerce.number().int().min(0).default(0),
+    withUserId: z.uuid().optional(),
+    groupId: z.uuid().optional(),
+  })
+  .refine((data) => !(data.withUserId && data.groupId), {
+    message: 'withUserId and groupId cannot both be set',
+    path: ['groupId'],
+  });
 export type ListExpensesQuery = z.infer<typeof listExpensesQuerySchema>;
 
 export interface ExpenseParticipantDTO {
@@ -66,6 +76,7 @@ export interface ExpenseDTO {
   createdById: string;
   createdAt: string;
   updatedAt: string;
+  groupId: string | null;
   participants: ExpenseParticipantDTO[];
 }
 

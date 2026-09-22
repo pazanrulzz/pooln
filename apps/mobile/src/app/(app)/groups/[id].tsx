@@ -1,13 +1,15 @@
 import { useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { router, useLocalSearchParams } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import * as Linking from 'expo-linking';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as authApi from '../../../api/auth';
 import * as groupsApi from '../../../api/groups';
 import * as invitesApi from '../../../api/invites';
+import * as expensesApi from '../../../api/expenses';
 import { confirm } from '../../../lib/confirm';
 import { shareLink } from '../../../lib/share';
+import { formatMoney } from '../../../lib/money';
 import { ParticipantPicker } from '../../../components/ParticipantPicker';
 import type { ParticipantRef } from '../../../components/participant';
 
@@ -22,6 +24,10 @@ export default function GroupDetail() {
   } = useQuery({
     queryKey: ['groups', id],
     queryFn: () => groupsApi.getGroup(id),
+  });
+  const { data: expensesData } = useQuery({
+    queryKey: ['expenses', { groupId: id }],
+    queryFn: () => expensesApi.listExpenses({ groupId: id }),
   });
 
   const [isRenaming, setIsRenaming] = useState(false);
@@ -153,6 +159,26 @@ export default function GroupDetail() {
         {inviteStatus && <Text style={styles.inviteStatus}>{inviteStatus}</Text>}
       </View>
 
+      <View style={styles.expensesSection}>
+        <View style={styles.expensesHeader}>
+          <Text style={styles.fieldLabel}>Expenses</Text>
+          <Link href={`/expenses/new?groupId=${id}`} asChild>
+            <Pressable>
+              <Text style={styles.addExpenseLink}>Add expense</Text>
+            </Pressable>
+          </Link>
+        </View>
+        {expensesData?.expenses.length === 0 && <Text style={styles.empty}>No expenses yet.</Text>}
+        {expensesData?.expenses.map((expense) => (
+          <Link key={expense.id} href={`/expenses/${expense.id}`} asChild>
+            <Pressable style={styles.expenseRow}>
+              <Text style={styles.expenseDescription}>{expense.description}</Text>
+              <Text style={styles.expenseAmount}>{formatMoney(expense.amountMinorUnits, expense.currency)}</Text>
+            </Pressable>
+          </Link>
+        ))}
+      </View>
+
       <Pressable style={styles.deleteButton} onPress={confirmDelete} disabled={deleteMutation.isPending}>
         <Text style={styles.deleteButtonText}>Delete group</Text>
       </Pressable>
@@ -198,6 +224,19 @@ const styles = StyleSheet.create({
   inviteButtonText: { color: '#fff', fontWeight: '600' },
   resetLink: { color: '#d92d20', fontSize: 13 },
   inviteStatus: { color: '#666', fontSize: 13 },
+  expensesSection: { gap: 4 },
+  expensesHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  addExpenseLink: { color: '#208aef', fontWeight: '600', fontSize: 13 },
+  empty: { color: '#666', fontSize: 13, paddingVertical: 8 },
+  expenseRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
+  },
+  expenseDescription: { fontSize: 15 },
+  expenseAmount: { color: '#666' },
   deleteButton: {
     borderRadius: 8,
     paddingVertical: 12,

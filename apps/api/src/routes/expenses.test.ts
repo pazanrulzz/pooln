@@ -426,3 +426,213 @@ describe('DELETE /expenses/:id', () => {
     expect(listRes.json().total).toBe(0);
   });
 });
+
+async function createGroup(app: ReturnType<typeof buildServer>, accessToken: string, memberIds: string[]) {
+  const res = await app.inject({
+    method: 'POST',
+    url: '/groups',
+    headers: authHeader(accessToken),
+    payload: { name: 'Munich', memberIds },
+  });
+  return res.json();
+}
+
+describe('Group-scoped expenses', () => {
+  it('restricts participants to group members and rejects an outsider', async () => {
+    const app = buildServer();
+    const a = await createUser(app);
+    const b = await createUser(app);
+    const outsider = await createUser(app);
+
+    const group = await createGroup(app, a.accessToken, [b.user.id]);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/expenses',
+      headers: authHeader(a.accessToken),
+      payload: {
+        description: 'Hotel',
+        amountMinorUnits: 10000,
+        splitType: 'EQUAL',
+        payerId: a.user.id,
+        groupId: group.id,
+        participants: [{ userId: a.user.id }, { userId: outsider.user.id }],
+      },
+    });
+
+    expect(res.statusCode).toBe(400);
+  });
+
+  it('lets a subset of group members split the expense', async () => {
+    const app = buildServer();
+    const a = await createUser(app);
+    const b = await createUser(app);
+    const c = await createUser(app);
+
+    const group = await createGroup(app, a.accessToken, [b.user.id, c.user.id]);
+
+    const res = await app.inject({
+      method: 'POST',
+      url: '/expenses',
+      headers: authHeader(a.accessToken),
+      payload: {
+        description: 'Dinner for two',
+        amountMinorUnits: 4000,
+        splitType: 'EQUAL',
+        payerId: a.user.id,
+        groupId: group.id,
+        participants: [{ userId: a.user.id }, { userId: b.user.id }],
+      },
+    });
+
+    expect(res.statusCode).toBe(201);
+    const body = res.json();
+    expect(body.groupId).toBe(group.id);
+    expect(body.participants.map((p: { userId: string }) => p.userId).sort()).toEqual(
+      [a.user.id, b.user.id].sort(),
+    );
+  });
+
+  it('lets a non-participant group member view, edit, and delete the expense', async () => {
+    const app = buildServer();
+    const a = await createUser(app);
+    const b = await createUser(app);
+    const c = await createUser(app, { displayName: 'C' });
+
+    const group = await createGroup(app, a.accessToken, [b.user.id, c.user.id]);
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/expenses',
+      headers: authHeader(a.accessToken),
+      payload: {
+        description: 'Groceries',
+        amountMinorUnits: 2000,
+        splitType: 'EQUAL',
+        payerId: a.user.id,
+        groupId: group.id,
+        participants: [{ userId: a.user.id }, { userId: b.user.id }],
+      },
+    });
+    const expense = createRes.json();
+
+    // C wasn't picked as a participant, but is still a group member.
+    const getRes = await app.inject({
+      method: 'GET',
+      url: `/expenses/${expense.id}`,
+      headers: authHeader(c.accessToken),
+    });
+    expect(getRes.statusCode).toBe(200);
+
+    const putRes = await app.inject({
+      method: 'PUT',
+      url: `/expenses/${expense.id}`,
+      headers: authHeader(c.accessToken),
+      payload: {
+        description: 'Groceries (updated)',
+        amountMinorUnits: 3000,
+        splitType: 'EQUAL',
+        payerId: a.user.id,
+        participants: [{ userId: a.user.id }, { userId: b.user.id }],
+      },
+    });
+    expect(putRes.statusCode).toBe(200);
+
+    const deleteRes = await app.inject({
+      method: 'DELETE',
+      url: `/expenses/${expense.id}`,
+      headers: authHeader(c.accessToken),
+    });
+    expect(deleteRes.statusCode).toBe(204);
+  });
+
+  it('returns 404 for a non-group-member, even by direct id', async () => {
+    const app = buildServer();
+    const a = await createUser(app);
+    const b = await createUser(app);
+    const outsider = await createUser(app);
+
+    const group = await createGroup(app, a.accessToken, [b.user.id]);
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/expenses',
+      headers: authHeader(a.accessToken),
+      payload: {
+        description: 'Taxi',
+        amountMinorUnits: 1500,
+        splitType: 'EQUAL',
+        payerId: a.user.id,
+        groupId: group.id,
+        participants: [{ userId: a.user.id }, { userId: b.user.id }],
+      },
+    });
+    const expense = createRes.json();
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/expenses/${expense.id}`,
+      headers: authHeader(outsider.accessToken),
+    });
+    expect(res.statusCode).toBe(404);
+  });
+
+  it('GET /expenses?groupId= returns only that group\'s expenses', async () => {
+    const app = buildServer();
+    const a = await createUser(app);
+    const b = await createUser(app);
+
+    const group = await createGroup(app, a.accessToken, [b.user.id]);
+
+    await app.inject({
+      method: 'POST',
+      url: '/expenses',
+      headers: authHeader(a.accessToken),
+      payload: {
+        description: 'In the group',
+        amountMinorUnits: 1000,
+        splitType: 'EQUAL',
+        payerId: a.user.id,
+        groupId: group.id,
+        participants: [{ userId: a.user.id }, { userId: b.user.id }],
+      },
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/expenses',
+      headers: authHeader(a.accessToken),
+      payload: {
+        description: 'Not in the group',
+        amountMinorUnits: 1000,
+        splitType: 'EQUAL',
+        payerId: a.user.id,
+        participants: [{ userId: a.user.id }, { userId: b.user.id }],
+      },
+    });
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/expenses?groupId=${group.id}`,
+      headers: authHeader(a.accessToken),
+    });
+    expect(res.statusCode).toBe(200);
+    const body = res.json();
+    expect(body.total).toBe(1);
+    expect(body.expenses[0].description).toBe('In the group');
+  });
+
+  it('rejects a non-group-member listing a group\'s expenses', async () => {
+    const app = buildServer();
+    const a = await createUser(app);
+    const outsider = await createUser(app);
+
+    const group = await createGroup(app, a.accessToken, []);
+
+    const res = await app.inject({
+      method: 'GET',
+      url: `/expenses?groupId=${group.id}`,
+      headers: authHeader(outsider.accessToken),
+    });
+    expect(res.statusCode).toBe(404);
+  });
+});

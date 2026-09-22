@@ -13,9 +13,12 @@ export function createExpense(input: CreateExpenseInput) {
   });
 }
 
-export function listExpenses(params: { withUserId?: string; limit?: number; offset?: number } = {}) {
+export function listExpenses(
+  params: { withUserId?: string; groupId?: string; limit?: number; offset?: number } = {},
+) {
   const query = new URLSearchParams();
   if (params.withUserId) query.set('withUserId', params.withUserId);
+  if (params.groupId) query.set('groupId', params.groupId);
   if (params.limit !== undefined) query.set('limit', String(params.limit));
   if (params.offset !== undefined) query.set('offset', String(params.offset));
   const qs = query.toString();
