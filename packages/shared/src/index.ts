@@ -8,3 +8,5 @@ export * from './splitCalc';
 export * from './expenses';
 export * from './balances';
 export * from './settlements';
+export * from './groups';
+export * from './invites';

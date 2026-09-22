@@ -37,6 +37,7 @@ export default function RootLayout() {
           <Stack.Screen name="sign-in" options={{ title: 'Sign in' }} />
           <Stack.Screen name="sign-up" options={{ title: 'Sign up' }} />
         </Stack.Protected>
+        <Stack.Screen name="join/[token]" options={{ title: 'Join group' }} />
       </Stack>
     </QueryClientProvider>
   );

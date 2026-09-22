@@ -1,14 +1,16 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { Link } from 'expo-router';
+import { Link, router, useLocalSearchParams } from 'expo-router';
 import { useMutation } from '@tanstack/react-query';
 import { signupSchema, type SignupInput } from '@pooln/shared';
 import * as authApi from '../api/auth';
+import * as invitesApi from '../api/invites';
 import { ApiError } from '../api/client';
 import { useAuthStore } from '../stores/authStore';
 
 export default function SignUp() {
+  const { inviteToken } = useLocalSearchParams<{ inviteToken?: string }>();
   const setTokens = useAuthStore((s) => s.setTokens);
 
   const {
@@ -22,7 +24,13 @@ export default function SignUp() {
 
   const mutation = useMutation({
     mutationFn: authApi.signup,
-    onSuccess: (data) => setTokens(data),
+    onSuccess: async (data) => {
+      setTokens(data);
+      if (inviteToken) {
+        const group = await invitesApi.acceptInvite(inviteToken);
+        router.replace(`/groups/${group.id}`);
+      }
+    },
   });
 
   return (

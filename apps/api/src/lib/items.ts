@@ -83,3 +83,33 @@ export interface SettlementPartyItem extends BaseItem {
   GSI1PK: string;
   GSI1SK: string;
 }
+
+export interface GroupItem extends BaseItem {
+  entityType: 'GROUP';
+  id: string;
+  name: string;
+  createdById: string;
+  createdAt: string;
+  updatedAt: string;
+  deletedAt?: string;
+  // Omitted (not `null`) when no invite link has been generated yet — same
+  // reasoning as deletedAt/revokedAt elsewhere in this file.
+  activeInviteToken?: string;
+}
+
+export interface GroupMemberItem extends BaseItem {
+  entityType: 'GROUP_MEMBER';
+  groupId: string;
+  userId: string;
+  joinedAt: string;
+  GSI1PK: string;
+  GSI1SK: string;
+}
+
+export interface GroupInviteItem extends BaseItem {
+  entityType: 'GROUP_INVITE';
+  token: string;
+  groupId: string;
+  createdById: string;
+  createdAt: string;
+}

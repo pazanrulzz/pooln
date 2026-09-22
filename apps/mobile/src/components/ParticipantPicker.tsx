@@ -8,9 +8,10 @@ interface Props {
   currentUserId: string;
   onAdd: (user: ParticipantRef) => void;
   onRemove: (userId: string) => void;
+  label?: string;
 }
 
-export function ParticipantPicker({ participants, currentUserId, onAdd, onRemove }: Props) {
+export function ParticipantPicker({ participants, currentUserId, onAdd, onRemove, label = 'Split with' }: Props) {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'error'>('idle');
   const [error, setError] = useState<string | null>(null);
@@ -44,7 +45,7 @@ export function ParticipantPicker({ participants, currentUserId, onAdd, onRemove
 
   return (
     <View style={styles.container}>
-      <Text style={styles.label}>Split with</Text>
+      <Text style={styles.label}>{label}</Text>
 
       {participants.map((p) => (
         <View key={p.id} style={styles.row}>
