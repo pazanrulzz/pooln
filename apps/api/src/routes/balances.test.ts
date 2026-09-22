@@ -126,6 +126,36 @@ describe('GET /balances', () => {
     expect(res.json().balances).toEqual([]);
   });
 
+  it('keeps a fully-settled counterpart in the list, with an empty balances array', async () => {
+    const app = buildServer();
+    const a = await createUser(app);
+    const b = await createUser(app, { displayName: 'Settled Friend' });
+
+    await createExpense(app, a.accessToken, {
+      description: 'Split',
+      amountMinorUnits: 1000,
+      splitType: 'EQUAL',
+      payerId: a.user.id,
+      participants: [{ userId: a.user.id }, { userId: b.user.id }],
+    });
+    await app.inject({
+      method: 'POST',
+      url: '/settlements',
+      headers: authHeader(b.accessToken),
+      payload: { fromUserId: b.user.id, toUserId: a.user.id, amountMinorUnits: 500, currency: 'USD' },
+    });
+
+    const res = await app.inject({ method: 'GET', url: '/balances', headers: authHeader(a.accessToken) });
+    expect(res.statusCode).toBe(200);
+    const byUser = byUserId(res.json());
+    expect(byUser[b.user.id]).toEqual({
+      userId: b.user.id,
+      displayName: 'Settled Friend',
+      avatarUrl: null,
+      balances: [],
+    });
+  });
+
   it("returns the counterpart's profile even with a zero balance", async () => {
     const app = buildServer();
     const a = await createUser(app, { displayName: 'Zero Balance Person' });

@@ -1,58 +1,52 @@
 import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
-import type { ExpenseDTO } from '@pooln/shared';
-import * as authApi from '../../../api/auth';
-import * as expensesApi from '../../../api/expenses';
+import type { CounterpartBalance } from '@pooln/shared';
+import * as balancesApi from '../../../api/balances';
 import { formatMoney } from '../../../lib/money';
 
-function ExpenseRow({ expense, currentUserId }: { expense: ExpenseDTO; currentUserId: string }) {
-  const you = expense.participants.find((p) => p.userId === currentUserId);
-  const isPayer = expense.payerId === currentUserId;
-  const netMinorUnits = you ? you.paidAmountMinorUnits - you.owedAmountMinorUnits : 0;
-
+function BalanceRow({ balance }: { balance: CounterpartBalance }) {
   return (
-    <Link href={`/expenses/${expense.id}`} asChild>
+    <Link href={`/balances/${balance.userId}`} asChild>
       <Pressable style={styles.row}>
-        <View style={styles.rowMain}>
-          <Text style={styles.description}>{expense.description}</Text>
-          <Text style={styles.meta}>
-            {isPayer ? 'You paid' : `${expense.participants.find((p) => p.userId === expense.payerId)?.displayName ?? 'Someone'} paid`}{' '}
-            {formatMoney(expense.amountMinorUnits, expense.currency)}
-          </Text>
-        </View>
-        <Text style={[styles.net, netMinorUnits >= 0 ? styles.netPositive : styles.netNegative]}>
-          {netMinorUnits === 0 ? '' : formatMoney(Math.abs(netMinorUnits), expense.currency)}
-        </Text>
+        <Text style={styles.name}>{balance.displayName}</Text>
+        {balance.balances.length === 0 ? (
+          <Text style={styles.settled}>Settled up</Text>
+        ) : (
+          <View style={styles.amounts}>
+            {balance.balances.map((line) => (
+              <Text
+                key={line.currency}
+                style={[styles.amount, line.amountMinorUnits >= 0 ? styles.positive : styles.negative]}
+              >
+                {line.amountMinorUnits >= 0 ? 'owes you ' : 'you owe '}
+                {formatMoney(Math.abs(line.amountMinorUnits), line.currency)}
+              </Text>
+            ))}
+          </View>
+        )}
       </Pressable>
     </Link>
   );
 }
 
 export default function ExpensesList() {
-  const { data: me } = useQuery({ queryKey: ['me'], queryFn: authApi.fetchMe });
-  const {
-    data,
-    isLoading,
-    isError,
-  } = useQuery({
-    queryKey: ['expenses'],
-    queryFn: () => expensesApi.listExpenses(),
+  const { data, isLoading, isError } = useQuery({
+    queryKey: ['balances'],
+    queryFn: balancesApi.listBalances,
   });
 
   return (
     <View style={styles.container}>
       {isLoading && <ActivityIndicator style={styles.spinner} />}
       {isError && <Text style={styles.error}>Couldn&apos;t load expenses.</Text>}
-      {data && me && (
+      {data && (
         <FlatList
-          data={data.expenses}
-          keyExtractor={(item) => item.id}
-          renderItem={({ item }) => <ExpenseRow expense={item} currentUserId={me.id} />}
-          ListEmptyComponent={
-            <Text style={styles.empty}>No expenses yet. Add one to get started.</Text>
-          }
-          contentContainerStyle={data.expenses.length === 0 && styles.emptyContainer}
+          data={data}
+          keyExtractor={(item) => item.userId}
+          renderItem={({ item }) => <BalanceRow balance={item} />}
+          ListEmptyComponent={<Text style={styles.empty}>No expenses yet. Add one to get started.</Text>}
+          contentContainerStyle={data.length === 0 && styles.emptyContainer}
         />
       )}
 
@@ -80,12 +74,12 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#eee',
   },
-  rowMain: { flexShrink: 1, gap: 2 },
-  description: { fontSize: 16, fontWeight: '600' },
-  meta: { color: '#666', fontSize: 13 },
-  net: { fontSize: 15, fontWeight: '600' },
-  netPositive: { color: '#1a7f37' },
-  netNegative: { color: '#d92d20' },
+  name: { fontSize: 16, fontWeight: '600' },
+  settled: { fontSize: 13, color: '#666' },
+  amounts: { alignItems: 'flex-end', gap: 2 },
+  amount: { fontSize: 14, fontWeight: '600' },
+  positive: { color: '#1a7f37' },
+  negative: { color: '#d92d20' },
   fab: {
     position: 'absolute',
     right: 20,

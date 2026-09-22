@@ -68,10 +68,12 @@ export async function computeBalances(
     .map((id) => {
       const user = userById.get(id);
       if (!user) return null;
+      // Zero-balance entries are kept (not dropped) — someone you've fully
+      // settled up with should still show up wherever this list is used to
+      // mean "who have I shared expenses with", not just "who do I owe".
       const balances: BalanceLine[] = [...net.get(id)!.entries()]
         .filter(([, amount]) => amount !== 0)
         .map(([currency, amountMinorUnits]) => ({ currency, amountMinorUnits }));
-      if (balances.length === 0) return null;
       return { userId: id, displayName: user.displayName, avatarUrl: user.avatarUrl, balances };
     })
     .filter((b): b is CounterpartBalance => b !== null)
