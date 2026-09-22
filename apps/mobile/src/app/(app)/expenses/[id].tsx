@@ -1,5 +1,6 @@
 import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import { Link, router, useLocalSearchParams } from 'expo-router';
+import type { ExpenseParticipantDTO } from '@pooln/shared';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as authApi from '../../../api/auth';
 import * as expensesApi from '../../../api/expenses';
@@ -35,6 +36,13 @@ export default function ExpenseDetail() {
   if (isLoading) return <ActivityIndicator style={styles.spinner} />;
   if (isError || !expense) return <Text style={styles.error}>Couldn&apos;t load this expense.</Text>;
 
+  // Single-payer model: if you paid, everyone else who owes is a settle
+  // target; if someone else paid, only the payer is (you owe them).
+  const isSettleTarget = (p: ExpenseParticipantDTO) =>
+    p.userId !== me?.id &&
+    p.owedAmountMinorUnits > 0 &&
+    (expense.payerId === me?.id || p.userId === expense.payerId);
+
   return (
     <View style={styles.container}>
       <Text style={styles.description}>{expense.description}</Text>
@@ -44,13 +52,22 @@ export default function ExpenseDetail() {
       <View style={styles.participants}>
         {expense.participants.map((p) => (
           <View key={p.userId} style={styles.participantRow}>
-            <Text style={styles.participantName}>
-              {p.userId === me?.id ? 'You' : p.displayName}
-              {p.userId === expense.payerId ? ' (paid)' : ''}
-            </Text>
-            <Text style={styles.participantAmount}>
-              owes {formatMoney(p.owedAmountMinorUnits, expense.currency)}
-            </Text>
+            <View>
+              <Text style={styles.participantName}>
+                {p.userId === me?.id ? 'You' : p.displayName}
+                {p.userId === expense.payerId ? ' (paid)' : ''}
+              </Text>
+              <Text style={styles.participantAmount}>
+                owes {formatMoney(p.owedAmountMinorUnits, expense.currency)}
+              </Text>
+            </View>
+            {isSettleTarget(p) && (
+              <Link href={`/settle/${p.userId}`} asChild>
+                <Pressable style={styles.settleButton}>
+                  <Text style={styles.settleButtonText}>Settle up</Text>
+                </Pressable>
+              </Link>
+            )}
           </View>
         ))}
       </View>
@@ -77,9 +94,16 @@ const styles = StyleSheet.create({
   amount: { fontSize: 28, fontWeight: '700' },
   notes: { color: '#666' },
   participants: { marginTop: 12, gap: 8 },
-  participantRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  participantRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
   participantName: { fontSize: 15 },
   participantAmount: { color: '#666' },
+  settleButton: {
+    backgroundColor: '#208aef',
+    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+  },
+  settleButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
   actions: { flexDirection: 'row', gap: 12, marginTop: 24 },
   editButton: {
     flex: 1,
