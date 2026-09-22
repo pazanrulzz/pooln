@@ -8,9 +8,6 @@ try {
 }
 
 const envSchema = z.object({
-  // TODO(dynamo-migration): dropped once expenses/settlements/balances cut
-  // over off Postgres too — see the plan file's phase breakdown.
-  DATABASE_URL: z.string().min(1),
   PORT: z.coerce.number().int().positive().default(3000),
   JWT_ACCESS_SECRET: z.string().min(1),
   JWT_REFRESH_SECRET: z.string().min(1),

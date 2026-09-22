@@ -8,10 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint .",
-    "test": "export DATABASE_URL=\"postgresql://pooln:pooln@localhost:5432/pooln_test\" DYNAMODB_TABLE_NAME=\"poolnDB-test\"; prisma migrate deploy && tsx scripts/ensure-table.ts && vitest run",
-    "prisma:generate": "prisma generate",
-    "prisma:migrate": "prisma migrate dev",
-    "prisma:studio": "prisma studio"
+    "test": "export DYNAMODB_TABLE_NAME=\"poolnDB-test\"; tsx scripts/ensure-table.ts && vitest run"
   },
   "dependencies": {
     "@aws-sdk/client-dynamodb": "^3.1136.0",
@@ -19,14 +16,12 @@
     "@fastify/cors": "^11.3.0",
     "@fastify/jwt": "^10.2.2",
     "@pooln/shared": "workspace:*",
-    "@prisma/client": "^6.1.0",
     "argon2": "^0.45.1",
     "fastify": "^5.2.0",
     "zod": "^4.6.5"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",
-    "prisma": "^6.1.0",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "vitest": "^2.1.8"

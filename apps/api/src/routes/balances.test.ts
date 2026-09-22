@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest';
 import type { CounterpartBalance } from '@pooln/shared';
 import { buildServer } from '../server.js';
 import { createUser } from '../test/helpers.js';
-import { prisma } from '../lib/prisma.js';
 
 function authHeader(accessToken: string) {
   return { authorization: `Bearer ${accessToken}` };
@@ -106,15 +105,16 @@ describe('GET /balances', () => {
     });
     expect(expense.id).toBeTypeOf('string');
 
-    // B owes A $5. Directly create a settlement row (settlement write API lands
-    // in the next sub-phase) recording B paying A back in full.
-    await prisma.settlement.create({
-      data: {
+    // B owes A $5 — record a settlement of B paying A back in full.
+    await app.inject({
+      method: 'POST',
+      url: '/settlements',
+      headers: authHeader(b.accessToken),
+      payload: {
         fromUserId: b.user.id,
         toUserId: a.user.id,
         amountMinorUnits: 500,
         currency: 'USD',
-        createdById: b.user.id,
       },
     });
 

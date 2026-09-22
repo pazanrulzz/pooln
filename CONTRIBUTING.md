@@ -4,16 +4,13 @@
 
 - Node.js 22 (see `.nvmrc`) — `nvm use`
 - [pnpm](https://pnpm.io) — `corepack enable` or `npm install -g pnpm`
-- Docker (or a Docker-compatible runtime such as [Colima](https://github.com/abiosoft/colima)) for local Postgres and DynamoDB Local
+- Docker (or a Docker-compatible runtime such as [Colima](https://github.com/abiosoft/colima)) for DynamoDB Local
 - Expo Go app on your phone, or an iOS Simulator / Android Emulator, to run the mobile app
 
 ## Setup
 
 ```bash
-# 1. Start Postgres (creates both the `pooln` and `pooln_test` databases
-#    on first boot — see docker/init/) and DynamoDB Local. The API is
-#    mid-migration from the former to the latter — see the plan file for
-#    why both currently run side by side.
+# 1. Start DynamoDB Local
 docker compose -f docker/docker-compose.yml up -d
 
 # 2. Install dependencies
@@ -23,13 +20,10 @@ pnpm install
 cp apps/api/.env.example apps/api/.env
 cp apps/mobile/.env.example apps/mobile/.env
 
-# 4. Apply migrations and generate the Prisma client
-pnpm --filter api prisma:migrate
-
-# 5. Run the API
+# 4. Run the API (creates the local table automatically on first run)
 pnpm --filter api dev
 
-# 6. In another terminal, run the mobile app
+# 5. In another terminal, run the mobile app
 pnpm --filter mobile start
 ```
 
@@ -39,9 +33,8 @@ Open the API health check at http://localhost:3000/health. In the mobile app, si
 
 - **Android Emulator networking**: the emulator can't reach the host via `localhost`. Set `EXPO_PUBLIC_API_URL=http://10.0.2.2:3000` in `apps/mobile/.env` when testing on the Android emulator. iOS Simulator and web both work with `localhost`.
 - **Physical device**: use your machine's LAN IP instead of `localhost` (e.g. `http://192.168.1.23:3000`), and make sure your phone is on the same network.
-- **Prisma Studio**: `pnpm --filter api prisma:studio` opens a local GUI for browsing the Postgres-backed data — no separate DB client needed. For the DynamoDB-backed data, [`dynamodb-admin`](https://www.npmjs.com/package/dynamodb-admin) (`npx dynamodb-admin`, with `DYNAMO_ENDPOINT=http://localhost:8000`) is the closest equivalent.
+- **Browsing local data**: [`dynamodb-admin`](https://www.npmjs.com/package/dynamodb-admin) (`npx dynamodb-admin`, with `DYNAMO_ENDPOINT=http://localhost:8000`) is a local GUI for browsing everything in the table — no separate DB client needed.
 - **DynamoDB Local resets on restart**: it runs in-memory (`-inMemory`, no persisted volume — see `docker/docker-compose.yml` for why), so its data doesn't survive `docker compose down`/restarts. `apps/api dev`/`test` recreate the table automatically (`scripts/ensure-table.ts`) if it's missing, so this is rarely something you need to think about.
-- **Test database**: `apps/api`'s `pnpm test` runs against a separate `pooln_test` database (not your dev data), and applies pending migrations to it automatically before each run. If your local Postgres volume predates this and doesn't have `pooln_test`, create it once with `docker exec <postgres-container> psql -U pooln -d pooln -c "CREATE DATABASE pooln_test;"`.
 - **Upgraded an existing `apps/api/.env`?** No new variables were added for auth (`JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` were already in `.env.example` from Phase 0) — just make sure your `.env` has real values, not the placeholders, before relying on tokens across restarts.
 
 ## Checks before opening a PR
@@ -52,4 +45,4 @@ pnpm -r lint
 pnpm -r test
 ```
 
-CI runs the same three commands against a Postgres service container on every PR.
+CI runs the same three commands against DynamoDB Local on every PR.

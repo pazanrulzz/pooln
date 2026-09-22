@@ -1,5 +1,6 @@
 import type { BalanceLine, CounterpartBalance } from '@pooln/shared';
-import { prisma } from './prisma.js';
+import { getAllExpensesForUser } from './expenseRepo.js';
+import { getSettlementPartiesForUser } from './settlementRepo.js';
 import { getUsersByIds } from './userRepo.js';
 
 /**
@@ -7,38 +8,20 @@ import { getUsersByIds } from './userRepo.js';
  * or settlement with (or just one specific counterpart, if given). Computed
  * on read — see the plan file for why: at this scale a materialized table
  * would just be a consistency-bug generator for no real benefit.
+ *
+ * Known, accepted eventual-consistency gap: both repo reads go through
+ * GSI1, which DynamoDB never serves with strong consistency (no
+ * ConsistentRead option exists for GSIs). A request microseconds after
+ * another client's POST /expenses could theoretically miss it — low
+ * severity and self-healing on the next request; the creator's own
+ * response is always fresh since it comes straight from the write.
  */
 export async function computeBalances(
   requesterId: string,
   counterpartId?: string,
 ): Promise<CounterpartBalance[]> {
-  const expenses = await prisma.expense.findMany({
-    where: {
-      deletedAt: null,
-      participants: { some: { userId: requesterId } },
-      ...(counterpartId ? { AND: [{ participants: { some: { userId: counterpartId } } }] } : {}),
-    },
-    include: { participants: true },
-  });
-
-  const settlements = await prisma.settlement.findMany({
-    where: {
-      deletedAt: null,
-      OR: [{ fromUserId: requesterId }, { toUserId: requesterId }],
-      ...(counterpartId
-        ? {
-            AND: [
-              {
-                OR: [
-                  { fromUserId: requesterId, toUserId: counterpartId },
-                  { fromUserId: counterpartId, toUserId: requesterId },
-                ],
-              },
-            ],
-          }
-        : {}),
-    },
-  });
+  const expenses = await getAllExpensesForUser(requesterId, counterpartId);
+  const settlements = await getSettlementPartiesForUser(requesterId, counterpartId);
 
   // counterpartUserId -> currency -> net amount (positive = they owe requester)
   const net = new Map<string, Map<string, number>>();
@@ -50,17 +33,17 @@ export async function computeBalances(
     byCurrency.set(currency, (byCurrency.get(currency) ?? 0) + amount);
   }
 
-  for (const expense of expenses) {
-    const payer = expense.participants.find((p) => p.paidAmountMinorUnits > 0);
+  for (const { expense, participants } of expenses) {
+    const payer = participants.find((p) => p.paidAmountMinorUnits > 0);
     if (!payer) continue;
 
     if (payer.userId === requesterId) {
-      for (const p of expense.participants) {
+      for (const p of participants) {
         if (p.userId === requesterId) continue;
         addTo(p.userId, expense.currency, p.owedAmountMinorUnits);
       }
     } else {
-      const requesterLine = expense.participants.find((p) => p.userId === requesterId);
+      const requesterLine = participants.find((p) => p.userId === requesterId);
       if (requesterLine) {
         addTo(payer.userId, expense.currency, -requesterLine.owedAmountMinorUnits);
       }

@@ -1,13 +1,23 @@
 import type { FastifyInstance } from 'fastify';
-import type { Prisma } from '@prisma/client';
 import { calculateSplit, createExpenseSchema, listExpensesQuerySchema, updateExpenseSchema } from '@pooln/shared';
-import { prisma } from '../lib/prisma.js';
-import { expenseInclude, toExpenseDTO, type ExpenseWithParticipants } from '../lib/expenseDto.js';
+import {
+  getExpenseWithParticipants,
+  listExpensesForUser,
+  softDeleteExpense,
+  createExpense as createExpenseInRepo,
+  updateExpense as updateExpenseInRepo,
+  type ExpenseWithParticipants,
+} from '../lib/expenseRepo.js';
+import { toExpenseDTO } from '../lib/expenseDto.js';
 import { getUsersByIds, getUsersMapByIds } from '../lib/userRepo.js';
 
 async function dtoWithParticipants(expense: ExpenseWithParticipants) {
   const usersById = await getUsersMapByIds(expense.participants.map((p) => p.userId));
   return toExpenseDTO(expense, usersById);
+}
+
+function isParticipant(expense: ExpenseWithParticipants, userId: string) {
+  return expense.participants.some((p) => p.userId === userId);
 }
 
 export async function expenseRoutes(app: FastifyInstance) {
@@ -40,26 +50,21 @@ export async function expenseRoutes(app: FastifyInstance) {
     const creator = users.find((u) => u.id === request.user.sub)!;
     const currency = input.currency ?? creator.defaultCurrency;
 
-    const expense = await prisma.expense.create({
-      data: {
-        description: input.description,
-        amountMinorUnits: input.amountMinorUnits,
-        currency,
-        splitType: input.splitType,
-        date: input.date ? new Date(input.date) : undefined,
-        notes: input.notes,
-        createdById: request.user.sub,
-        participants: {
-          create: split.lines.map((line) => ({
-            userId: line.userId,
-            paidAmountMinorUnits: line.userId === input.payerId ? input.amountMinorUnits : 0,
-            owedAmountMinorUnits: line.owedAmountMinorUnits,
-            sharePercentBp: line.sharePercentBp,
-            shareUnits: line.shareUnits,
-          })),
-        },
-      },
-      ...expenseInclude,
+    const expense = await createExpenseInRepo({
+      description: input.description,
+      amountMinorUnits: input.amountMinorUnits,
+      currency,
+      splitType: input.splitType,
+      date: input.date,
+      notes: input.notes ?? null,
+      createdById: request.user.sub,
+      participants: split.lines.map((line) => ({
+        userId: line.userId,
+        paidAmountMinorUnits: line.userId === input.payerId ? input.amountMinorUnits : 0,
+        owedAmountMinorUnits: line.owedAmountMinorUnits,
+        sharePercentBp: line.sharePercentBp ?? null,
+        shareUnits: line.shareUnits ?? null,
+      })),
     });
 
     const usersById = new Map(users.map((u) => [u.id, u]));
@@ -73,30 +78,16 @@ export async function expenseRoutes(app: FastifyInstance) {
     }
     const { limit, offset, withUserId } = parsed.data;
 
-    const requesterFilter: Prisma.ExpenseWhereInput = {
-      deletedAt: null,
-      participants: { some: { userId: request.user.sub } },
-    };
-    const where: Prisma.ExpenseWhereInput = withUserId
-      ? { AND: [requesterFilter, { participants: { some: { userId: withUserId } } } satisfies Prisma.ExpenseWhereInput] }
-      : requesterFilter;
+    const { items, total } = await listExpensesForUser(request.user.sub, { counterpartId: withUserId, limit, offset });
 
-    const [expenses, total] = await Promise.all([
-      prisma.expense.findMany({ where, ...expenseInclude, orderBy: { date: 'desc' }, take: limit, skip: offset }),
-      prisma.expense.count({ where }),
-    ]);
-
-    const usersById = await getUsersMapByIds(expenses.flatMap((e) => e.participants.map((p) => p.userId)));
-    return reply.send({ expenses: expenses.map((e) => toExpenseDTO(e, usersById)), total });
+    const usersById = await getUsersMapByIds(items.flatMap((e) => e.participants.map((p) => p.userId)));
+    return reply.send({ expenses: items.map((e) => toExpenseDTO(e, usersById)), total });
   });
 
   app.get('/expenses/:id', { preHandler: app.authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const expense = await prisma.expense.findFirst({
-      where: { id, deletedAt: null, participants: { some: { userId: request.user.sub } } },
-      ...expenseInclude,
-    });
-    if (!expense) {
+    const expense = await getExpenseWithParticipants(id);
+    if (!expense || !isParticipant(expense, request.user.sub)) {
       return reply.code(404).send({ error: 'Expense not found' });
     }
     return reply.send(await dtoWithParticipants(expense));
@@ -104,10 +95,8 @@ export async function expenseRoutes(app: FastifyInstance) {
 
   app.put('/expenses/:id', { preHandler: app.authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const existing = await prisma.expense.findFirst({
-      where: { id, deletedAt: null, participants: { some: { userId: request.user.sub } } },
-    });
-    if (!existing) {
+    const existing = await getExpenseWithParticipants(id);
+    if (!existing || !isParticipant(existing, request.user.sub)) {
       return reply.code(404).send({ error: 'Expense not found' });
     }
 
@@ -132,31 +121,22 @@ export async function expenseRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: split.error });
     }
 
-    const currency = input.currency ?? existing.currency;
+    const currency = input.currency ?? existing.expense.currency;
 
-    const expense = await prisma.$transaction(async (tx) => {
-      await tx.expenseParticipant.deleteMany({ where: { expenseId: id } });
-      return tx.expense.update({
-        where: { id },
-        data: {
-          description: input.description,
-          amountMinorUnits: input.amountMinorUnits,
-          currency,
-          splitType: input.splitType,
-          date: input.date ? new Date(input.date) : undefined,
-          notes: input.notes,
-          participants: {
-            create: split.lines.map((line) => ({
-              userId: line.userId,
-              paidAmountMinorUnits: line.userId === input.payerId ? input.amountMinorUnits : 0,
-              owedAmountMinorUnits: line.owedAmountMinorUnits,
-              sharePercentBp: line.sharePercentBp,
-              shareUnits: line.shareUnits,
-            })),
-          },
-        },
-        ...expenseInclude,
-      });
+    const expense = await updateExpenseInRepo(id, {
+      description: input.description,
+      amountMinorUnits: input.amountMinorUnits,
+      currency,
+      splitType: input.splitType,
+      date: input.date,
+      notes: input.notes ?? null,
+      participants: split.lines.map((line) => ({
+        userId: line.userId,
+        paidAmountMinorUnits: line.userId === input.payerId ? input.amountMinorUnits : 0,
+        owedAmountMinorUnits: line.owedAmountMinorUnits,
+        sharePercentBp: line.sharePercentBp ?? null,
+        shareUnits: line.shareUnits ?? null,
+      })),
     });
 
     const usersById = new Map(users.map((u) => [u.id, u]));
@@ -165,14 +145,12 @@ export async function expenseRoutes(app: FastifyInstance) {
 
   app.delete('/expenses/:id', { preHandler: app.authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const existing = await prisma.expense.findFirst({
-      where: { id, deletedAt: null, participants: { some: { userId: request.user.sub } } },
-    });
-    if (!existing) {
+    const existing = await getExpenseWithParticipants(id);
+    if (!existing || !isParticipant(existing, request.user.sub)) {
       return reply.code(404).send({ error: 'Expense not found' });
     }
 
-    await prisma.expense.update({ where: { id }, data: { deletedAt: new Date() } });
+    await softDeleteExpense(id);
     return reply.code(204).send();
   });
 }

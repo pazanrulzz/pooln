@@ -1,21 +1,20 @@
-import type { Settlement } from '@prisma/client';
 import type { SettlementDTO } from '@pooln/shared';
-import type { UserItem } from './items.js';
+import type { SettlementPartyItem } from './items.js';
 
-// fromUser/toUser display info now comes from DynamoDB (lib/userRepo.js),
-// not a Prisma relation — same reasoning as expenseDto.ts.
-export function toSettlementDTO(settlement: Settlement, usersById: Map<string, UserItem>): SettlementDTO {
+// Fully denormalized on the item itself (see settlementRepo.ts) — unlike
+// expenseDto.ts, no usersById map needed here at all.
+export function toSettlementDTO(settlement: SettlementPartyItem): SettlementDTO {
   return {
     id: settlement.id,
     fromUserId: settlement.fromUserId,
-    fromDisplayName: usersById.get(settlement.fromUserId)?.displayName ?? 'Unknown user',
+    fromDisplayName: settlement.fromDisplayName,
     toUserId: settlement.toUserId,
-    toDisplayName: usersById.get(settlement.toUserId)?.displayName ?? 'Unknown user',
+    toDisplayName: settlement.toDisplayName,
     amountMinorUnits: settlement.amountMinorUnits,
     currency: settlement.currency,
     note: settlement.note,
-    settledAt: settlement.settledAt.toISOString(),
+    settledAt: settlement.settledAt,
     createdById: settlement.createdById,
-    createdAt: settlement.createdAt.toISOString(),
+    createdAt: settlement.createdAt,
   };
 }

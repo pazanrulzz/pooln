@@ -1,9 +1,8 @@
 import type { FastifyInstance } from 'fastify';
-import type { Prisma } from '@prisma/client';
 import { createSettlementSchema, listSettlementsQuerySchema } from '@pooln/shared';
-import { prisma } from '../lib/prisma.js';
 import { toSettlementDTO } from '../lib/settlementDto.js';
-import { getUsersByIds, getUsersMapByIds } from '../lib/userRepo.js';
+import { createSettlement, getSettlementParties, getSettlementPartiesForUser, softDeleteSettlement } from '../lib/settlementRepo.js';
+import { getUsersByIds } from '../lib/userRepo.js';
 
 export async function settlementRoutes(app: FastifyInstance) {
   app.post('/settlements', { preHandler: app.authenticate }, async (request, reply) => {
@@ -21,21 +20,21 @@ export async function settlementRoutes(app: FastifyInstance) {
     if (users.length !== 2) {
       return reply.code(400).send({ error: 'One or both users do not exist' });
     }
+    const usersById = new Map(users.map((u) => [u.id, u]));
 
-    const settlement = await prisma.settlement.create({
-      data: {
-        fromUserId: input.fromUserId,
-        toUserId: input.toUserId,
-        amountMinorUnits: input.amountMinorUnits,
-        currency: input.currency,
-        note: input.note,
-        settledAt: input.settledAt ? new Date(input.settledAt) : undefined,
-        createdById: request.user.sub,
-      },
+    const [settlement] = await createSettlement({
+      fromUserId: input.fromUserId,
+      fromDisplayName: usersById.get(input.fromUserId)!.displayName,
+      toUserId: input.toUserId,
+      toDisplayName: usersById.get(input.toUserId)!.displayName,
+      amountMinorUnits: input.amountMinorUnits,
+      currency: input.currency,
+      note: input.note ?? null,
+      settledAt: input.settledAt,
+      createdById: request.user.sub,
     });
 
-    const usersById = new Map(users.map((u) => [u.id, u]));
-    return reply.code(201).send(toSettlementDTO(settlement, usersById));
+    return reply.code(201).send(toSettlementDTO(settlement!));
   });
 
   app.get('/settlements', { preHandler: app.authenticate }, async (request, reply) => {
@@ -45,42 +44,21 @@ export async function settlementRoutes(app: FastifyInstance) {
     }
     const { limit, offset, withUserId } = parsed.data;
 
-    const requesterFilter: Prisma.SettlementWhereInput = {
-      deletedAt: null,
-      OR: [{ fromUserId: request.user.sub }, { toUserId: request.user.sub }],
-    };
-    const where: Prisma.SettlementWhereInput = withUserId
-      ? {
-          AND: [
-            requesterFilter,
-            { OR: [{ fromUserId: withUserId }, { toUserId: withUserId }] } satisfies Prisma.SettlementWhereInput,
-          ],
-        }
-      : requesterFilter;
+    const all = await getSettlementPartiesForUser(request.user.sub, withUserId);
+    const page = all.slice(offset, offset + limit);
 
-    const [settlements, total] = await Promise.all([
-      prisma.settlement.findMany({ where, orderBy: { settledAt: 'desc' }, take: limit, skip: offset }),
-      prisma.settlement.count({ where }),
-    ]);
-
-    const usersById = await getUsersMapByIds(settlements.flatMap((s) => [s.fromUserId, s.toUserId]));
-    return reply.send({ settlements: settlements.map((s) => toSettlementDTO(s, usersById)), total });
+    return reply.send({ settlements: page.map(toSettlementDTO), total: all.length });
   });
 
   app.delete('/settlements/:id', { preHandler: app.authenticate }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const existing = await prisma.settlement.findFirst({
-      where: {
-        id,
-        deletedAt: null,
-        OR: [{ fromUserId: request.user.sub }, { toUserId: request.user.sub }],
-      },
-    });
-    if (!existing) {
+    const existing = await getSettlementParties(id);
+    const isParty = existing?.some((s) => s.fromUserId === request.user.sub || s.toUserId === request.user.sub);
+    if (!existing || !isParty) {
       return reply.code(404).send({ error: 'Settlement not found' });
     }
 
-    await prisma.settlement.update({ where: { id }, data: { deletedAt: new Date() } });
+    await softDeleteSettlement(id);
     return reply.code(204).send();
   });
 }

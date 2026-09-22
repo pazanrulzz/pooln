@@ -18,7 +18,9 @@ export const createExpenseSchema = z
     payerId: z.uuid(),
     date: z.iso.datetime().optional(),
     notes: z.string().trim().max(1000).optional(),
-    participants: z.array(expenseParticipantInputSchema).min(2),
+    // TransactWriteItems caps at 100 items/transaction; a create/update
+    // writes 1 metadata item + N participant items.
+    participants: z.array(expenseParticipantInputSchema).min(2).max(99),
   })
   .refine(
     (data) => new Set(data.participants.map((p) => p.userId)).size === data.participants.length,

@@ -338,6 +338,54 @@ describe('PUT /expenses/:id', () => {
     expect(byUser[a.user.id]!.owedAmountMinorUnits).toBe(500);
     expect(byUser[b.user.id]!.paidAmountMinorUnits).toBe(2000);
   });
+
+  it('removes a participant while others persist (no key collision on the underlying write)', async () => {
+    const app = buildServer();
+    const a = await createUser(app, { displayName: 'A' });
+    const b = await createUser(app, { displayName: 'B' });
+    const c = await createUser(app, { displayName: 'C' });
+
+    const createRes = await app.inject({
+      method: 'POST',
+      url: '/expenses',
+      headers: authHeader(a.accessToken),
+      payload: {
+        description: 'Three-way split',
+        amountMinorUnits: 3000,
+        splitType: 'EQUAL',
+        payerId: a.user.id,
+        participants: [{ userId: a.user.id }, { userId: b.user.id }, { userId: c.user.id }],
+      },
+    });
+    const expense = createRes.json();
+
+    // A and B persist across the edit; only C is dropped.
+    const updateRes = await app.inject({
+      method: 'PUT',
+      url: `/expenses/${expense.id}`,
+      headers: authHeader(a.accessToken),
+      payload: {
+        description: 'Two-way split',
+        amountMinorUnits: 2000,
+        splitType: 'EQUAL',
+        payerId: a.user.id,
+        participants: [{ userId: a.user.id }, { userId: b.user.id }],
+      },
+    });
+
+    expect(updateRes.statusCode).toBe(200);
+    const updated = updateRes.json();
+    expect(updated.participants.map((p: { userId: string }) => p.userId).sort()).toEqual(
+      [a.user.id, b.user.id].sort(),
+    );
+
+    const getRes = await app.inject({
+      method: 'GET',
+      url: `/expenses/${expense.id}`,
+      headers: authHeader(a.accessToken),
+    });
+    expect(getRes.json().participants).toHaveLength(2);
+  });
 });
 
 describe('DELETE /expenses/:id', () => {

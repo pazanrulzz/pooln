@@ -1,24 +1,4 @@
 services:
-  postgres:
-    image: postgres:16-alpine
-    restart: unless-stopped
-    environment:
-      POSTGRES_USER: pooln
-      POSTGRES_PASSWORD: pooln
-      POSTGRES_DB: pooln
-    ports:
-      - "5432:5432"
-    volumes:
-      - pooln_postgres_data:/var/lib/postgresql/data
-      - ./init:/docker-entrypoint-initdb.d
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U pooln"]
-      interval: 5s
-      timeout: 5s
-      retries: 5
-
-  # Being migrated off Postgres to DynamoDB (see the plan file) — this
-  # container is dropped once the migration's teardown phase lands.
   # -inMemory (no volume): the official image's default -dbPath SQLite file
   # can't be opened when it lands on a fresh named Docker volume (root-owned,
   # container user can't write to it) — crash-loops instead of erroring
@@ -31,6 +11,3 @@ services:
     ports:
       - "8000:8000"
     command: ["-jar", "DynamoDBLocal.jar", "-inMemory", "-sharedDb"]
-
-volumes:
-  pooln_postgres_data:
