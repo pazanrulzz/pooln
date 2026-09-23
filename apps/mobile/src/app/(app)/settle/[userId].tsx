@@ -1,13 +1,30 @@
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { Button, Host, Text as UIText, TextInput as UITextInput } from '@expo/ui';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as authApi from '../../../api/auth';
 import * as balancesApi from '../../../api/balances';
 import * as settlementsApi from '../../../api/settlements';
 import { ApiError } from '../../../api/client';
-import { minorUnitsToText, textToMinorUnits } from '../../../lib/money';
+import { COMMON_CURRENCIES, currencySymbol, formatMoney, minorUnitsToText, textToMinorUnits } from '../../../lib/money';
+import {
+  AppText,
+  Avatar,
+  Banner,
+  Button,
+  Card,
+  Chip,
+  Icon,
+  SegmentedControl,
+  SkeletonList,
+  TextField,
+  colors,
+  radius,
+  showActionSheet,
+  showToast,
+  spacing,
+  typography,
+} from '../../../ui';
 
 export default function SettleUp() {
   const { userId } = useLocalSearchParams<{ userId: string }>();
@@ -21,41 +38,60 @@ export default function SettleUp() {
 
   // Fields start as user overrides (null = "use the default derived from the
   // balance below"). Deriving defaults from a query result at render time,
-  // rather than syncing them into state via an effect, avoids the extra
-  // render effects-with-setState causes and keeps this in sync automatically
-  // if the balance refetches.
+  // rather than syncing them into state via an effect, keeps them in sync if
+  // the balance refetches.
   const [youPaidOverride, setYouPaidOverride] = useState<boolean | null>(null);
   const [amountOverride, setAmountOverride] = useState<string | null>(null);
   const [currencyOverride, setCurrencyOverride] = useState<string | null>(null);
   const [note, setNote] = useState('');
   const [error, setError] = useState<string | null>(null);
 
-  // "you paid them" by default, unless the balance says they owe you — then
-  // "they paid you" (recording them paying off what they owe) makes more sense.
-  const defaultLine = balance?.balances[0];
-  const youPaid = youPaidOverride ?? (defaultLine ? defaultLine.amountMinorUnits < 0 : true);
-  const amountText = amountOverride ?? (defaultLine ? minorUnitsToText(Math.abs(defaultLine.amountMinorUnits)) : '');
-  const currency = currencyOverride ?? defaultLine?.currency ?? 'USD';
-
   const mutation = useMutation({
     mutationFn: settlementsApi.createSettlement,
-    onSuccess: () => {
+    onSuccess: (s) => {
       queryClient.invalidateQueries({ queryKey: ['balances'] });
+      queryClient.invalidateQueries({ queryKey: ['settlements'] });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
+      showToast(`Payment of ${formatMoney(s.amountMinorUnits, s.currency)} recorded`);
       router.back();
     },
-    onError: (err: unknown) => {
-      setError(err instanceof ApiError ? err.message : 'Something went wrong.');
-    },
+    onError: (err: unknown) => setError(err instanceof ApiError ? err.message : 'Something went wrong.'),
   });
 
   if (isLoading || !me || !balance) {
-    return <ActivityIndicator style={styles.spinner} />;
+    return (
+      <View style={styles.padded}>
+        <SkeletonList rows={3} />
+      </View>
+    );
   }
+
+  const currency = currencyOverride ?? balance.balances[0]?.currency ?? me.defaultCurrency;
+  const line = balance.balances.find((l) => l.currency === currency);
+  // "You paid them" by default, unless they owe you — then recording them
+  // paying you back is the likelier intent.
+  const youPaid = youPaidOverride ?? (line ? line.amountMinorUnits < 0 : true);
+  const outstanding = line ? Math.abs(line.amountMinorUnits) : 0;
+  const amountText = amountOverride ?? (outstanding > 0 ? minorUnitsToText(outstanding) : '');
+  const theirName = balance.displayName.split(' ')[0] ?? balance.displayName;
+
+  const payer = youPaid ? { name: me.displayName, uri: me.avatarUrl, label: 'You' } : { name: balance.displayName, uri: balance.avatarUrl, label: theirName };
+  const payee = youPaid ? { name: balance.displayName, uri: balance.avatarUrl, label: theirName } : { name: me.displayName, uri: me.avatarUrl, label: 'You' };
+
+  const pickCurrency = async () => {
+    const owed = balance.balances.map((l) => l.currency);
+    const options = [...new Set([...owed, ...COMMON_CURRENCIES])];
+    const index = await showActionSheet({ title: 'Currency', options: options.map((c) => ({ label: c })) });
+    if (index !== null) {
+      setCurrencyOverride(options[index]!);
+      setAmountOverride(null);
+    }
+  };
 
   const handleSubmit = () => {
     const amountMinorUnits = textToMinorUnits(amountText);
     if (amountMinorUnits === null || amountMinorUnits <= 0) {
-      setError('Enter a valid amount.');
+      setError('Enter an amount greater than zero.');
       return;
     }
     setError(null);
@@ -69,116 +105,104 @@ export default function SettleUp() {
   };
 
   return (
-    <Host style={styles.container} colorScheme="light" ignoreSafeArea="all">
-      <View style={styles.titleBox}>
-        <UIText textStyle={styles.titleText}>{`Settle up with ${balance.displayName}`}</UIText>
-      </View>
-
-      <View style={styles.directionRow}>
-        <View style={styles.directionFlex}>
-          <Button
-            variant="text"
-            onPress={() => setYouPaidOverride(true)}
-            style={youPaid ? styles.directionOptionActive : styles.directionOption}
-          >
-            <UIText textStyle={youPaid ? styles.directionTextActive : styles.directionText}>You paid them</UIText>
-          </Button>
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        <View style={styles.flow}>
+          <View style={styles.party}>
+            <Avatar name={payer.name} uri={payer.uri} size={64} />
+            <AppText variant="subhead" weight="600">
+              {payer.label}
+            </AppText>
+          </View>
+          <View style={styles.arrow}>
+            <Icon name="arrowRight" size={18} color={colors.brand} />
+          </View>
+          <View style={styles.party}>
+            <Avatar name={payee.name} uri={payee.uri} size={64} />
+            <AppText variant="subhead" weight="600">
+              {payee.label}
+            </AppText>
+          </View>
         </View>
-        <View style={styles.directionFlex}>
-          <Button
-            variant="text"
-            onPress={() => setYouPaidOverride(false)}
-            style={!youPaid ? styles.directionOptionActive : styles.directionOption}
-          >
-            <UIText textStyle={!youPaid ? styles.directionTextActive : styles.directionText}>They paid you</UIText>
-          </Button>
-        </View>
-      </View>
 
-      <Text style={styles.fieldLabel}>Amount</Text>
-      <View style={styles.amountRow}>
-        <View style={styles.amountField}>
-          <UITextInput
-            style={styles.input}
-            textStyle={styles.inputText}
-            keyboardType="decimal-pad"
-            placeholder="0.00"
-            defaultValue={amountText}
-            onChangeText={setAmountOverride}
-          />
-        </View>
-        <View style={styles.currencyField}>
-          <UITextInput
-            style={styles.input}
-            textStyle={styles.inputText}
-            autoCapitalize="characters"
-            maxLength={3}
-            defaultValue={currency}
-            onChangeText={(text) => setCurrencyOverride(text.toUpperCase())}
-          />
-        </View>
-      </View>
+        <SegmentedControl
+          value={youPaid ? 'me' : 'them'}
+          onChange={(v) => setYouPaidOverride(v === 'me')}
+          options={[
+            { value: 'me', label: `You paid ${theirName}` },
+            { value: 'them', label: `${theirName} paid you` },
+          ]}
+        />
 
-      <Text style={styles.fieldLabel}>Note (optional)</Text>
-      <UITextInput style={styles.input} textStyle={styles.inputText} defaultValue={note} onChangeText={setNote} />
-
-      {error && <Text style={styles.error}>{error}</Text>}
-
-      <View style={styles.submitBox}>
-        <Button variant="text" onPress={handleSubmit} disabled={mutation.isPending} style={styles.submitButton}>
-          {mutation.isPending ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <UIText textStyle={styles.submitText}>Record settlement</UIText>
+        <Card style={styles.amountCard}>
+          <View style={styles.amountRow}>
+            <Pressable onPress={pickCurrency} style={styles.currencyPill} accessibilityRole="button" accessibilityLabel={`Currency ${currency}`}>
+              <AppText variant="subhead" weight="700" tone="brand">
+                {currency}
+              </AppText>
+              <Icon name="chevronDown" size={10} color={colors.brand} />
+            </Pressable>
+            <AppText style={styles.symbol}>{currencySymbol(currency)}</AppText>
+            <TextInput
+              value={amountText}
+              onChangeText={setAmountOverride}
+              placeholder="0.00"
+              placeholderTextColor={colors.tertiaryLabel}
+              keyboardType="decimal-pad"
+              style={styles.amountInput}
+              accessibilityLabel="Amount"
+            />
+          </View>
+          {outstanding > 0 && (
+            <View style={styles.suggestion}>
+              <AppText variant="footnote" tone="secondary">
+                Outstanding balance {formatMoney(outstanding, currency)}
+              </AppText>
+              <Chip label="Pay in full" tone="brand" icon="check" onPress={() => setAmountOverride(minorUnitsToText(outstanding))} />
+            </View>
           )}
-        </Button>
-      </View>
-    </Host>
+        </Card>
+
+        <TextField label="Note" icon="note" placeholder="e.g. Bank transfer, cash, Revolut" value={note} onChangeText={setNote} maxLength={280} />
+
+        {error && <Banner tone="error">{error}</Banner>}
+
+        <Button title="Record payment" icon="check" onPress={handleSubmit} loading={mutation.isPending} />
+        <AppText variant="footnote" tone="tertiary" align="center">
+          This records a payment made outside Pooln — no money is moved.
+        </AppText>
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, gap: 12 },
-  spinner: { marginTop: 40 },
-  titleBox: { marginBottom: 8 },
-  titleText: { fontSize: 20, fontWeight: '700', color: '#000' },
-  directionRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  directionFlex: { flex: 1 },
-  directionOption: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingVertical: 10,
-    backgroundColor: '#fff',
+  flex: { flex: 1 },
+  padded: { padding: spacing.lg },
+  container: { padding: spacing.lg, gap: spacing.xl, paddingBottom: spacing.xxxl * 2 },
+  flow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.lg, paddingTop: spacing.md },
+  party: { alignItems: 'center', gap: spacing.sm, width: 96 },
+  arrow: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: colors.brandTint,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: spacing.xl,
   },
-  directionOptionActive: {
-    backgroundColor: '#208aef',
-    borderColor: '#208aef',
-    borderWidth: 1,
-    borderRadius: 8,
-    paddingVertical: 10,
+  amountCard: { gap: spacing.md },
+  amountRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  currencyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: radius.pill,
+    backgroundColor: colors.brandTint,
   },
-  directionText: { textAlign: 'center', color: '#000' },
-  directionTextActive: { textAlign: 'center', color: '#fff' },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#666' },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-  },
-  inputText: { fontSize: 16, color: '#000' },
-  amountRow: { flexDirection: 'row', gap: 12 },
-  amountField: { flex: 2 },
-  currencyField: { flex: 1 },
-  error: { color: '#d92d20', fontSize: 13 },
-  submitBox: { marginTop: 8 },
-  submitButton: {
-    backgroundColor: '#208aef',
-    borderRadius: 8,
-    paddingVertical: 14,
-  },
-  submitText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  symbol: { ...typography.title1, color: colors.tertiaryLabel, marginLeft: spacing.xs },
+  amountInput: { ...typography.largeTitle, flex: 1, color: colors.label, outlineStyle: 'solid', outlineWidth: 0, paddingVertical: 0, minWidth: 0 },
+  suggestion: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm, flexWrap: 'wrap' },
 });

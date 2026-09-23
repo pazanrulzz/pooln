@@ -9,9 +9,9 @@ import {
   getGroupsForUser,
   getOrCreateGroupInvite,
   removeGroupMember,
-  renameGroup,
   revokeGroupInvite,
   softDeleteGroup,
+  updateGroup,
   type GroupWithMembers,
 } from '../lib/groupRepo.js';
 import { getUserById, getUsersMapByIds } from '../lib/userRepo.js';
@@ -36,6 +36,7 @@ export async function groupRoutes(app: FastifyInstance) {
       name: parsed.data.name,
       createdById: request.user.sub,
       memberIds: parsed.data.memberIds,
+      avatarUrl: parsed.data.avatarUrl,
     });
     return reply.code(201).send(await dtoFor(result));
   });
@@ -67,7 +68,7 @@ export async function groupRoutes(app: FastifyInstance) {
       return reply.code(400).send({ error: 'Invalid input', issues: parsed.error.issues });
     }
 
-    const group = await renameGroup(id, parsed.data.name);
+    const group = await updateGroup(id, parsed.data);
     return reply.send(await dtoFor({ group, members: result.members }));
   });
 

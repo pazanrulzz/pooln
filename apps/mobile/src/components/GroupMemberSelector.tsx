@@ -1,4 +1,4 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Avatar, Icon, ListRow, ListSection, colors } from '../ui';
 import type { ParticipantRef } from './participant';
 
 interface Props {
@@ -15,56 +15,28 @@ interface Props {
  */
 export function GroupMemberSelector({ members, selectedIds, currentUserId, onToggle }: Props) {
   return (
-    <View style={styles.container}>
-      <Text style={styles.label}>Split with</Text>
-
+    <ListSection title={`Split with · ${selectedIds.length} of ${members.length}`} separatorInset={64}>
       {members.map((member) => {
         const isSelected = selectedIds.includes(member.id);
         const isSelf = member.id === currentUserId;
 
         return (
-          <Pressable
+          <ListRow
             key={member.id}
-            style={styles.row}
-            onPress={() => !isSelf && onToggle(member.id)}
-            disabled={isSelf}
-          >
-            <View style={[styles.checkbox, isSelected && styles.checkboxChecked]}>
-              {isSelected && <Text style={styles.checkmark}>✓</Text>}
-            </View>
-            <Text style={styles.name}>
-              {member.displayName}
-              {isSelf ? ' (you)' : ''}
-            </Text>
-          </Pressable>
+            title={isSelf ? `${member.displayName} (you)` : member.displayName}
+            leading={<Avatar name={member.displayName} size={36} />}
+            onPress={isSelf ? undefined : () => onToggle(member.id)}
+            chevron={false}
+            trailing={
+              <Icon
+                name={isSelected ? 'checkCircle' : 'circle'}
+                size={22}
+                color={isSelected ? colors.brand : colors.tertiaryLabel}
+              />
+            }
+          />
         );
       })}
-    </View>
+    </ListSection>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { gap: 4 },
-  label: { fontSize: 13, fontWeight: '600', color: '#666', marginBottom: 4 },
-  row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    paddingVertical: 8,
-  },
-  checkbox: {
-    width: 20,
-    height: 20,
-    borderRadius: 4,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  checkboxChecked: {
-    backgroundColor: '#208aef',
-    borderColor: '#208aef',
-  },
-  checkmark: { color: '#fff', fontSize: 13, fontWeight: '700' },
-  name: { fontSize: 15 },
-});

@@ -94,6 +94,7 @@ export interface GroupItem extends BaseItem {
   entityType: 'GROUP';
   id: string;
   name: string;
+  avatarUrl: string | null;
   createdById: string;
   createdAt: string;
   updatedAt: string;

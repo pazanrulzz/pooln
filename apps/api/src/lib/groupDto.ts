@@ -5,6 +5,7 @@ export function toGroupDTO(group: GroupItem, members: GroupMemberItem[], usersBy
   return {
     id: group.id,
     name: group.name,
+    avatarUrl: group.avatarUrl ?? null,
     createdById: group.createdById,
     createdAt: group.createdAt,
     updatedAt: group.updatedAt,

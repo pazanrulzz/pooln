@@ -1,8 +1,7 @@
 import { useState } from 'react';
-import { ActivityIndicator, StyleSheet } from 'react-native';
-import { Host } from '@expo/ui';
 import { router, useLocalSearchParams } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import type { CreateExpenseInput } from '@pooln/shared';
 import * as authApi from '../../../../api/auth';
 import * as expensesApi from '../../../../api/expenses';
 import * as groupsApi from '../../../../api/groups';
@@ -13,6 +12,7 @@ import {
   toCreateExpenseInput,
   type ExpenseFormValues,
 } from '../../../../components/ExpenseForm';
+import { SkeletonList, showToast } from '../../../../ui';
 
 export default function EditExpense() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -31,12 +31,12 @@ export default function EditExpense() {
   });
 
   const mutation = useMutation({
-    mutationFn: (input: ReturnType<typeof toCreateExpenseInput>) => {
-      if (!input) throw new Error('invalid input');
-      return expensesApi.updateExpense(id, input);
-    },
+    mutationFn: (input: CreateExpenseInput) => expensesApi.updateExpense(id, input),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['expenses'] });
+      queryClient.invalidateQueries({ queryKey: ['balances'] });
+      queryClient.invalidateQueries({ queryKey: ['activity'] });
+      showToast('Changes saved');
       router.back();
     },
     onError: (err: unknown) => {
@@ -45,7 +45,7 @@ export default function EditExpense() {
   });
 
   if (isLoading || !me || !expense || (groupId && !group)) {
-    return <ActivityIndicator style={styles.spinner} />;
+    return <SkeletonList rows={4} />;
   }
 
   const handleSubmit = (values: ExpenseFormValues) => {
@@ -59,21 +59,15 @@ export default function EditExpense() {
   };
 
   return (
-    <Host style={styles.host} colorScheme="light" ignoreSafeArea="all">
-      <ExpenseForm
-        currentUserId={me.id}
-        submitLabel="Save changes"
-        isSubmitting={mutation.isPending}
-        submitError={submitError}
-        onSubmit={handleSubmit}
-        groupMembers={group?.members.map((m) => ({ id: m.userId, displayName: m.displayName }))}
-        initialValues={fromExpenseDTO(expense)}
-      />
-    </Host>
+    <ExpenseForm
+      currentUserId={me.id}
+      submitLabel="Save changes"
+      isSubmitting={mutation.isPending}
+      submitError={submitError}
+      onSubmit={handleSubmit}
+      groupMembers={group?.members.map((m) => ({ id: m.userId, displayName: m.displayName }))}
+      contextLabel={group ? `In ${group.name}` : undefined}
+      initialValues={fromExpenseDTO(expense)}
+    />
   );
 }
-
-const styles = StyleSheet.create({
-  spinner: { marginTop: 40 },
-  host: { flex: 1 },
-});

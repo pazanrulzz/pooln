@@ -1,8 +1,8 @@
-import { Pressable, StyleSheet, Text } from 'react-native';
 import { router } from 'expo-router';
+import { IconButton } from '../ui';
 
 /**
- * Explicit header-left back chevron — set globally as the (app) stack's
+ * Explicit header-left back button — set globally as the (app) stack's
  * default headerLeft rather than relying on the platform's automatic back
  * button, which wasn't reliably appearing (e.g. on web).
  */
@@ -15,14 +15,5 @@ export function BackButton() {
     }
   };
 
-  return (
-    <Pressable onPress={handlePress} hitSlop={12} style={styles.button}>
-      <Text style={styles.chevron}>‹</Text>
-    </Pressable>
-  );
+  return <IconButton icon="chevronLeft" onPress={handlePress} accessibilityLabel="Back" size={36} />;
 }
-
-const styles = StyleSheet.create({
-  button: { paddingHorizontal: 8, paddingVertical: 6 },
-  chevron: { color: '#208aef', fontSize: 30, fontWeight: '600', lineHeight: 30 },
-});

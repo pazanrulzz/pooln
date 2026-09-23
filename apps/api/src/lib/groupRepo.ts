@@ -36,6 +36,7 @@ export async function createGroup(input: {
   name: string;
   createdById: string;
   memberIds: string[];
+  avatarUrl?: string | null;
 }): Promise<GroupWithMembers> {
   const id = randomUUID();
   const now = new Date().toISOString();
@@ -45,6 +46,7 @@ export async function createGroup(input: {
     entityType: EntityType.Group,
     id,
     name: input.name,
+    avatarUrl: input.avatarUrl ?? null,
     createdById: input.createdById,
     createdAt: now,
     updatedAt: now,
@@ -108,14 +110,28 @@ export async function getGroupsForUser(userId: string): Promise<GroupWithMembers
   return groups.filter((g): g is GroupWithMembers => g !== null);
 }
 
-export async function renameGroup(id: string, name: string): Promise<GroupItem> {
+export async function updateGroup(
+  id: string,
+  updates: { name?: string; avatarUrl?: string | null },
+): Promise<GroupItem> {
+  const setClauses = ['updatedAt = :updatedAt'];
+  const names: Record<string, string> = {};
+  const values: Record<string, unknown> = { ':updatedAt': new Date().toISOString() };
+
+  for (const [key, value] of Object.entries(updates)) {
+    if (value === undefined) continue;
+    setClauses.push(`#${key} = :${key}`);
+    names[`#${key}`] = key;
+    values[`:${key}`] = value;
+  }
+
   const res = await dynamo.send(
     new UpdateCommand({
       TableName: TABLE_NAME,
       Key: groupMetaKey(id),
-      UpdateExpression: 'SET #name = :name, updatedAt = :now',
-      ExpressionAttributeNames: { '#name': 'name' },
-      ExpressionAttributeValues: { ':name': name, ':now': new Date().toISOString() },
+      UpdateExpression: `SET ${setClauses.join(', ')}`,
+      ExpressionAttributeNames: names,
+      ExpressionAttributeValues: values,
       ReturnValues: 'ALL_NEW',
     }),
   );

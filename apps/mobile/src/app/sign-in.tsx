@@ -1,5 +1,3 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { Button, Host, Text as UIText, TextInput as UITextInput } from '@expo/ui';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router, useLocalSearchParams } from 'expo-router';
@@ -9,6 +7,8 @@ import * as authApi from '../api/auth';
 import * as invitesApi from '../api/invites';
 import { ApiError } from '../api/client';
 import { useAuthStore } from '../stores/authStore';
+import { AuthLayout } from '../components/AuthLayout';
+import { AppText, Banner, Button, TextField } from '../ui';
 
 export default function SignIn() {
   const { inviteToken } = useLocalSearchParams<{ inviteToken?: string }>();
@@ -34,115 +34,74 @@ export default function SignIn() {
     },
   });
 
+  const submit = handleSubmit((values) => mutation.mutate(values));
+
   return (
-    <Host style={styles.container} colorScheme="light" ignoreSafeArea="all">
-      <View style={styles.titleBox}>
-        <UIText textStyle={styles.titleText}>Welcome back</UIText>
-      </View>
+    <AuthLayout
+      title="Welcome back"
+      subtitle={inviteToken ? 'Sign in to accept your group invite.' : 'Sign in to see who owes what.'}
+      footer={
+        <AppText variant="subhead" tone="secondary">
+          New to Pooln?{' '}
+          <Link href={{ pathname: '/sign-up', params: inviteToken ? { inviteToken } : {} }}>
+            <AppText variant="subhead" tone="brand" weight="600">
+              Create an account
+            </AppText>
+          </Link>
+        </AppText>
+      }
+    >
+      {mutation.isError && (
+        <Banner tone="error">
+          {mutation.error instanceof ApiError ? mutation.error.message : 'Something went wrong. Please try again.'}
+        </Banner>
+      )}
 
       <Controller
         control={control}
         name="email"
         render={({ field }) => (
-          <UITextInput
-            style={styles.input}
-            textStyle={styles.inputText}
-            placeholder="Email"
+          <TextField
+            variant="filled"
+            label="Email"
+            icon="envelope"
+            placeholder="you@example.com"
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
-            defaultValue={field.value}
+            textContentType="emailAddress"
+            returnKeyType="next"
+            value={field.value}
             onChangeText={field.onChange}
+            onBlur={field.onBlur}
+            error={errors.email?.message}
           />
         )}
       />
-      {errors.email && <Text style={styles.error}>{errors.email.message}</Text>}
 
       <Controller
         control={control}
         name="password"
         render={({ field }) => (
-          <UITextInput
-            style={styles.input}
-            textStyle={styles.inputText}
-            placeholder="Password"
+          <TextField
+            variant="filled"
+            label="Password"
+            icon="lock"
+            placeholder="Your password"
             secureTextEntry
             autoComplete="password"
-            defaultValue={field.value}
+            textContentType="password"
+            returnKeyType="go"
+            onSubmitEditing={submit}
+            value={field.value}
             onChangeText={field.onChange}
+            onBlur={field.onBlur}
+            error={errors.password?.message}
           />
         )}
       />
-      {errors.password && <Text style={styles.error}>{errors.password.message}</Text>}
 
-      {mutation.isError && (
-        <Text style={styles.error}>
-          {mutation.error instanceof ApiError ? mutation.error.message : 'Something went wrong'}
-        </Text>
-      )}
-
-      <View style={styles.buttonBox}>
-        <Button
-          variant="text"
-          onPress={handleSubmit((values) => mutation.mutate(values))}
-          disabled={mutation.isPending}
-          style={styles.button}
-        >
-          {mutation.isPending ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <UIText textStyle={styles.buttonText}>Sign in</UIText>
-          )}
-        </Button>
-      </View>
-
-      <Link href="/sign-up" style={styles.link}>
-        Don&apos;t have an account? Sign up
-      </Link>
-    </Host>
+      <Button title="Sign in" onPress={submit} loading={mutation.isPending} />
+    </AuthLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    gap: 12,
-  },
-  titleBox: { marginBottom: 12 },
-  titleText: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#000',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-  },
-  inputText: { fontSize: 16, color: '#000' },
-  error: {
-    color: '#d92d20',
-    fontSize: 13,
-  },
-  buttonBox: { marginTop: 8 },
-  button: {
-    backgroundColor: '#208aef',
-    borderRadius: 8,
-    paddingVertical: 14,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  link: {
-    marginTop: 16,
-    textAlign: 'center',
-    color: '#208aef',
-  },
-});

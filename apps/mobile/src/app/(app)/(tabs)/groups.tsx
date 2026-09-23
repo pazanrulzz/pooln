@@ -1,90 +1,109 @@
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Link } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import type { GroupDTO } from '@pooln/shared';
 import * as groupsApi from '../../../api/groups';
 import { useTabBarClearance } from '../../../components/FloatingTabBar';
-import { GlassToolbar } from '../../../components/GlassToolbar';
+import {
+  AppText,
+  Avatar,
+  AvatarStack,
+  Card,
+  Chip,
+  EmptyState,
+  ErrorState,
+  Icon,
+  IconButton,
+  LargeHeader,
+  SearchBar,
+  SkeletonList,
+  colors,
+  spacing,
+} from '../../../ui';
 
-function GroupRow({ group }: { group: GroupDTO }) {
+function GroupCard({ group }: { group: GroupDTO }) {
+  const count = group.members.length;
+
   return (
-    <Link href={`/groups/${group.id}`} asChild>
-      <Pressable style={styles.row}>
-        <Text style={styles.name}>{group.name}</Text>
-        <Text style={styles.meta}>
-          {group.members.length} {group.members.length === 1 ? 'member' : 'members'}
-        </Text>
-      </Pressable>
-    </Link>
+    <Card onPress={() => router.push(`/groups/${group.id}`)} accessibilityLabel={`Open ${group.name}`}>
+      <View style={styles.cardRow}>
+        <Avatar name={group.name} uri={group.avatarUrl} size={56} shape="squircle" icon={group.avatarUrl ? undefined : 'userGroup'} />
+        <View style={styles.cardText}>
+          <AppText variant="headline" numberOfLines={1}>
+            {group.name}
+          </AppText>
+          <View style={styles.meta}>
+            <Chip label={`${count} ${count === 1 ? 'member' : 'members'}`} icon="people" tone="brand" />
+            <AvatarStack people={group.members.map((m) => ({ id: m.userId, name: m.displayName, uri: m.avatarUrl }))} size={28} />
+          </View>
+        </View>
+        <Icon name="chevronRight" size={13} color={colors.tertiaryLabel} />
+      </View>
+    </Card>
   );
 }
 
 export default function GroupsList() {
-  const { data, isLoading, isError } = useQuery({
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['groups'],
     queryFn: () => groupsApi.listGroups(),
   });
-  const fabBottom = useTabBarClearance();
+  const bottomPadding = useTabBarClearance();
+  const [query, setQuery] = useState('');
+
+  const groups = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const all = data?.groups ?? [];
+    return q ? all.filter((g) => g.name.toLowerCase().includes(q)) : all;
+  }, [data, query]);
+
+  const createGroup = () => router.push('/groups/new');
+  const hasGroups = (data?.groups.length ?? 0) > 0;
 
   return (
-    <View style={styles.host}>
-      <GlassToolbar title="Groups" />
+    <View style={styles.screen}>
+      <LargeHeader
+        title="Groups"
+        actions={<IconButton icon="plus" variant="filled" onPress={createGroup} accessibilityLabel="Create group" />}
+      >
+        {hasGroups && <SearchBar value={query} onChangeText={setQuery} placeholder="Search groups" />}
+      </LargeHeader>
 
-      <View style={styles.container}>
-        {isLoading && <ActivityIndicator style={styles.spinner} />}
-        {isError && <Text style={styles.error}>Couldn&apos;t load groups.</Text>}
-        {data && (
-          <FlatList
-            data={data.groups}
-            keyExtractor={(item) => item.id}
-            renderItem={({ item }) => <GroupRow group={item} />}
-            ListEmptyComponent={<Text style={styles.empty}>No groups yet. Create one to get started.</Text>}
-            contentContainerStyle={data.groups.length === 0 && styles.emptyContainer}
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.brand} />}
+        keyboardShouldPersistTaps="handled"
+      >
+        {isLoading && <SkeletonList rows={3} />}
+        {isError && <ErrorState message="Couldn't load groups." onRetry={refetch} />}
+
+        {data && !hasGroups && (
+          <EmptyState
+            icon="userGroup"
+            title="No groups yet"
+            message="Create a group for your flat, a trip or a team, and split everything in one place."
+            actionLabel="Create group"
+            onAction={createGroup}
           />
         )}
 
-        <Link href="/groups/new" asChild>
-          <Pressable style={StyleSheet.flatten([styles.fab, { bottom: fabBottom }])}>
-            <Text style={styles.fabText}>＋</Text>
-          </Pressable>
-        </Link>
-      </View>
+        {hasGroups && groups.length === 0 && (
+          <EmptyState icon="search" title="No matches" message={`No group named “${query.trim()}”.`} />
+        )}
+
+        {groups.map((group) => (
+          <GroupCard key={group.id} group={group} />
+        ))}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  host: { flex: 1 },
-  container: { flex: 1 },
-  spinner: { marginTop: 40 },
-  error: { color: '#d92d20', padding: 20 },
-  empty: { color: '#666', textAlign: 'center', padding: 20 },
-  emptyContainer: { flex: 1, justifyContent: 'center' },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  name: { fontSize: 16, fontWeight: '600' },
-  meta: { color: '#666', fontSize: 13 },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#208aef',
-    alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-  },
-  fabText: { color: '#fff', fontSize: 28, lineHeight: 30 },
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.md },
+  cardRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md },
+  cardText: { flex: 1, gap: spacing.sm },
+  meta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.sm },
 });

@@ -1,5 +1,3 @@
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
-import { Button, Host, Text as UIText, TextInput as UITextInput } from '@expo/ui';
 import { Controller, useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { Link, router, useLocalSearchParams } from 'expo-router';
@@ -9,6 +7,8 @@ import * as authApi from '../api/auth';
 import * as invitesApi from '../api/invites';
 import { ApiError } from '../api/client';
 import { useAuthStore } from '../stores/authStore';
+import { AuthLayout } from '../components/AuthLayout';
+import { AppText, Banner, Button, TextField } from '../ui';
 
 export default function SignUp() {
   const { inviteToken } = useLocalSearchParams<{ inviteToken?: string }>();
@@ -34,131 +34,93 @@ export default function SignUp() {
     },
   });
 
+  const submit = handleSubmit((values) => mutation.mutate(values));
+
   return (
-    <Host style={styles.container} colorScheme="light" ignoreSafeArea="all">
-      <View style={styles.titleBox}>
-        <UIText textStyle={styles.titleText}>Create your account</UIText>
-      </View>
+    <AuthLayout
+      title="Create your account"
+      subtitle={inviteToken ? 'Join Pooln to accept your group invite.' : 'It takes less than a minute.'}
+      footer={
+        <AppText variant="subhead" tone="secondary">
+          Already have an account?{' '}
+          <Link href={{ pathname: '/sign-in', params: inviteToken ? { inviteToken } : {} }}>
+            <AppText variant="subhead" tone="brand" weight="600">
+              Sign in
+            </AppText>
+          </Link>
+        </AppText>
+      }
+    >
+      {mutation.isError && (
+        <Banner tone="error">
+          {mutation.error instanceof ApiError ? mutation.error.message : 'Something went wrong. Please try again.'}
+        </Banner>
+      )}
 
       <Controller
         control={control}
         name="displayName"
         render={({ field }) => (
-          <UITextInput
-            style={styles.input}
-            textStyle={styles.inputText}
-            placeholder="Name"
+          <TextField
+            variant="filled"
+            label="Name"
+            icon="person"
+            placeholder="Alex Morgan"
             autoComplete="name"
-            defaultValue={field.value}
+            textContentType="name"
+            value={field.value}
             onChangeText={field.onChange}
+            onBlur={field.onBlur}
+            error={errors.displayName?.message}
           />
         )}
       />
-      {errors.displayName && <Text style={styles.error}>{errors.displayName.message}</Text>}
 
       <Controller
         control={control}
         name="email"
         render={({ field }) => (
-          <UITextInput
-            style={styles.input}
-            textStyle={styles.inputText}
-            placeholder="Email"
+          <TextField
+            variant="filled"
+            label="Email"
+            icon="envelope"
+            placeholder="you@example.com"
             autoCapitalize="none"
             autoComplete="email"
             keyboardType="email-address"
-            defaultValue={field.value}
+            textContentType="emailAddress"
+            value={field.value}
             onChangeText={field.onChange}
+            onBlur={field.onBlur}
+            error={errors.email?.message}
           />
         )}
       />
-      {errors.email && <Text style={styles.error}>{errors.email.message}</Text>}
 
       <Controller
         control={control}
         name="password"
         render={({ field }) => (
-          <UITextInput
-            style={styles.input}
-            textStyle={styles.inputText}
-            placeholder="Password (min. 8 characters)"
+          <TextField
+            variant="filled"
+            label="Password"
+            icon="lock"
+            placeholder="At least 8 characters"
             secureTextEntry
             autoComplete="new-password"
-            defaultValue={field.value}
+            textContentType="newPassword"
+            returnKeyType="go"
+            onSubmitEditing={submit}
+            value={field.value}
             onChangeText={field.onChange}
+            onBlur={field.onBlur}
+            error={errors.password?.message}
+            hint="Use 8 or more characters."
           />
         )}
       />
-      {errors.password && <Text style={styles.error}>{errors.password.message}</Text>}
 
-      {mutation.isError && (
-        <Text style={styles.error}>
-          {mutation.error instanceof ApiError ? mutation.error.message : 'Something went wrong'}
-        </Text>
-      )}
-
-      <View style={styles.buttonBox}>
-        <Button
-          variant="text"
-          onPress={handleSubmit((values) => mutation.mutate(values))}
-          disabled={mutation.isPending}
-          style={styles.button}
-        >
-          {mutation.isPending ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <UIText textStyle={styles.buttonText}>Sign up</UIText>
-          )}
-        </Button>
-      </View>
-
-      <Link href="/sign-in" style={styles.link}>
-        Already have an account? Sign in
-      </Link>
-    </Host>
+      <Button title="Create account" onPress={submit} loading={mutation.isPending} />
+    </AuthLayout>
   );
 }
-
-const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    justifyContent: 'center',
-    padding: 24,
-    gap: 12,
-  },
-  titleBox: { marginBottom: 12 },
-  titleText: {
-    fontSize: 28,
-    fontWeight: '700',
-    color: '#000',
-  },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-  },
-  inputText: { fontSize: 16, color: '#000' },
-  error: {
-    color: '#d92d20',
-    fontSize: 13,
-  },
-  buttonBox: { marginTop: 8 },
-  button: {
-    backgroundColor: '#208aef',
-    borderRadius: 8,
-    paddingVertical: 14,
-  },
-  buttonText: {
-    color: '#fff',
-    fontWeight: '600',
-    fontSize: 16,
-  },
-  link: {
-    marginTop: 16,
-    textAlign: 'center',
-    color: '#208aef',
-  },
-});

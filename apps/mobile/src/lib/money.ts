@@ -31,14 +31,37 @@ export function parseSplitValue(
   return Number.isFinite(n) ? n : undefined;
 }
 
-const CURRENCY_SYMBOLS: Record<string, string> = {
-  USD: '$',
-  EUR: '€',
-  GBP: '£',
-  JPY: '¥',
-};
+export const COMMON_CURRENCIES = ['USD', 'EUR', 'GBP', 'JPY', 'CHF', 'CAD', 'AUD', 'INR', 'LKR', 'SEK'] as const;
+
+const formatters = new Map<string, Intl.NumberFormat>();
+
+// Minor units are always hundredths in this app's data model (JPY included),
+// so fraction digits are pinned to 2 rather than using each currency's default.
+function formatterFor(currency: string) {
+  let f = formatters.get(currency);
+  if (!f) {
+    try {
+      f = new Intl.NumberFormat('en-US', {
+        style: 'currency',
+        currency,
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } catch {
+      f = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    formatters.set(currency, f);
+  }
+  return f;
+}
 
 export function formatMoney(amountMinorUnits: number, currency: string): string {
-  const symbol = CURRENCY_SYMBOLS[currency] ?? `${currency} `;
-  return `${symbol}${minorUnitsToText(amountMinorUnits)}`;
+  return formatterFor(currency).format(amountMinorUnits / 100);
+}
+
+export function currencySymbol(currency: string): string {
+  const part = formatterFor(currency)
+    .formatToParts(0)
+    .find((p) => p.type === 'currency');
+  return part?.value ?? currency;
 }

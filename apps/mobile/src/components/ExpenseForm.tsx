@@ -1,8 +1,22 @@
 import { useState } from 'react';
-import { ActivityIndicator, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { Button, Text as UIText, TextInput as UITextInput } from '@expo/ui';
+import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import type { CreateExpenseInput, ExpenseDTO, SplitType } from '@pooln/shared';
-import { minorUnitsToText, parseSplitValue, textToMinorUnits } from '../lib/money';
+import { COMMON_CURRENCIES, currencySymbol, minorUnitsToText, parseSplitValue, textToMinorUnits } from '../lib/money';
+import { getExpenseIcon } from '../lib/expenseIcon';
+import {
+  AppText,
+  Banner,
+  Button,
+  Card,
+  Chip,
+  Icon,
+  TextField,
+  colors,
+  radius,
+  showActionSheet,
+  spacing,
+  typography,
+} from '../ui';
 import { ParticipantPicker } from './ParticipantPicker';
 import { GroupMemberSelector } from './GroupMemberSelector';
 import { SplitEditor } from './SplitEditor';
@@ -75,6 +89,8 @@ interface Props {
   onSubmit: (values: ExpenseFormValues) => void;
   /** The group's full roster, when this expense belongs to a group — restricts participant selection to it. */
   groupMembers?: ParticipantRef[];
+  /** Shown above the form, e.g. "In Munich". */
+  contextLabel?: string;
 }
 
 export function ExpenseForm({
@@ -85,6 +101,7 @@ export function ExpenseForm({
   submitError,
   onSubmit,
   groupMembers,
+  contextLabel,
 }: Props) {
   const [description, setDescription] = useState(initialValues.description);
   const [amountText, setAmountText] = useState(initialValues.amountText);
@@ -97,10 +114,9 @@ export function ExpenseForm({
   const [formError, setFormError] = useState<string | null>(null);
 
   const amountMinorUnits = textToMinorUnits(amountText);
+  const category = getExpenseIcon(description);
 
-  const handleAddParticipant = (user: ParticipantRef) => {
-    setParticipants((prev) => [...prev, user]);
-  };
+  const handleAddParticipant = (user: ParticipantRef) => setParticipants((prev) => [...prev, user]);
 
   const handleRemoveParticipant = (userId: string) => {
     setParticipants((prev) => prev.filter((p) => p.id !== userId));
@@ -116,20 +132,19 @@ export function ExpenseForm({
     if (member) handleAddParticipant(member);
   };
 
+  const pickCurrency = async () => {
+    const options = COMMON_CURRENCIES.includes(currency as (typeof COMMON_CURRENCIES)[number])
+      ? COMMON_CURRENCIES
+      : [currency, ...COMMON_CURRENCIES];
+    const index = await showActionSheet({ title: 'Currency', options: options.map((c) => ({ label: c })) });
+    if (index !== null) setCurrency(options[index]!);
+  };
+
   const handleSubmit = () => {
     setFormError(null);
-    if (!description.trim()) {
-      setFormError('Give this expense a description.');
-      return;
-    }
-    if (amountMinorUnits === null || amountMinorUnits <= 0) {
-      setFormError('Enter a valid amount.');
-      return;
-    }
-    if (participants.length < 2) {
-      setFormError('Add at least one more person to split with.');
-      return;
-    }
+    if (!description.trim()) return setFormError('Give this expense a description.');
+    if (amountMinorUnits === null || amountMinorUnits <= 0) return setFormError('Enter an amount greater than zero.');
+    if (participants.length < 2) return setFormError('Add at least one more person to split with.');
     onSubmit({
       description: description.trim(),
       amountText,
@@ -143,150 +158,133 @@ export function ExpenseForm({
     });
   };
 
+  const error = formError ?? submitError;
+
   return (
-    <ScrollView contentContainerStyle={styles.container}>
-      <Text style={styles.fieldLabel}>Description</Text>
-      <UITextInput
-        style={styles.input}
-        textStyle={styles.inputText}
-        placeholder="Dinner, rent, taxi..."
-        defaultValue={description}
-        onChangeText={setDescription}
-      />
+    <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+      <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
+        {contextLabel && <Chip label={contextLabel} icon="userGroup" tone="brand" style={styles.context} />}
 
-      <View style={styles.amountRow}>
-        <View style={styles.amountField}>
-          <Text style={styles.fieldLabel}>Amount</Text>
-          <UITextInput
-            style={styles.input}
-            textStyle={styles.inputText}
-            placeholder="0.00"
-            keyboardType="decimal-pad"
-            defaultValue={amountText}
-            onChangeText={setAmountText}
+        <Card style={styles.hero}>
+          <View style={styles.descriptionRow}>
+            <View style={[styles.categoryBadge, { backgroundColor: category.color }]}>
+              <Icon name={category.name} size={22} color="#fff" />
+            </View>
+            <TextInput
+              value={description}
+              onChangeText={setDescription}
+              placeholder="What was it for?"
+              placeholderTextColor={colors.tertiaryLabel}
+              style={styles.descriptionInput}
+              accessibilityLabel="Description"
+              returnKeyType="next"
+            />
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.amountRow}>
+            <Pressable onPress={pickCurrency} style={styles.currencyPill} accessibilityLabel={`Currency ${currency}`} accessibilityRole="button">
+              <AppText variant="subhead" weight="700" tone="brand">
+                {currency}
+              </AppText>
+              <Icon name="chevronDown" size={10} color={colors.brand} />
+            </Pressable>
+            <AppText style={styles.symbol}>{currencySymbol(currency)}</AppText>
+            <TextInput
+              value={amountText}
+              onChangeText={setAmountText}
+              placeholder="0.00"
+              placeholderTextColor={colors.tertiaryLabel}
+              keyboardType="decimal-pad"
+              style={styles.amountInput}
+              accessibilityLabel="Amount"
+            />
+          </View>
+        </Card>
+
+        {groupMembers ? (
+          <GroupMemberSelector
+            members={groupMembers}
+            selectedIds={participants.map((p) => p.id)}
+            currentUserId={currentUserId}
+            onToggle={handleToggleGroupMember}
           />
-        </View>
-        <View style={styles.currencyField}>
-          <Text style={styles.fieldLabel}>Currency</Text>
-          <UITextInput
-            style={styles.input}
-            textStyle={styles.inputText}
-            autoCapitalize="characters"
-            maxLength={3}
-            defaultValue={currency}
-            onChangeText={(text) => setCurrency(text.toUpperCase())}
+        ) : (
+          <ParticipantPicker
+            participants={participants}
+            currentUserId={currentUserId}
+            onAdd={handleAddParticipant}
+            onRemove={handleRemoveParticipant}
           />
+        )}
+
+        <View style={styles.block}>
+          <AppText variant="footnote" tone="secondary" weight="600" style={styles.blockLabel}>
+            PAID BY
+          </AppText>
+          <View style={styles.chips}>
+            {participants.map((p) => (
+              <Chip
+                key={p.id}
+                label={p.id === currentUserId ? 'You' : p.displayName}
+                selected={payerId === p.id}
+                onPress={() => setPayerId(p.id)}
+              />
+            ))}
+          </View>
         </View>
-      </View>
 
-      {groupMembers ? (
-        <GroupMemberSelector
-          members={groupMembers}
-          selectedIds={participants.map((p) => p.id)}
-          currentUserId={currentUserId}
-          onToggle={handleToggleGroupMember}
+        {amountMinorUnits !== null && amountMinorUnits > 0 && participants.length >= 2 && (
+          <SplitEditor
+            splitType={splitType}
+            onSplitTypeChange={setSplitType}
+            participants={participants}
+            totalAmountMinorUnits={amountMinorUnits}
+            currency={currency}
+            currentUserId={currentUserId}
+            values={splitValues}
+            onValuesChange={setSplitValues}
+          />
+        )}
+
+        <TextField
+          label="Notes"
+          icon="note"
+          placeholder="Optional details, e.g. receipt number"
+          multiline
+          value={notes}
+          onChangeText={setNotes}
         />
-      ) : (
-        <ParticipantPicker
-          participants={participants}
-          currentUserId={currentUserId}
-          onAdd={handleAddParticipant}
-          onRemove={handleRemoveParticipant}
-        />
-      )}
 
-      <Text style={styles.fieldLabel}>Paid by</Text>
-      <View style={styles.payerRow}>
-        {participants.map((p) => {
-          const isActive = payerId === p.id;
-          return (
-            <Button
-              key={p.id}
-              variant="text"
-              onPress={() => setPayerId(p.id)}
-              style={isActive ? styles.payerOptionActive : styles.payerOption}
-            >
-              <UIText textStyle={isActive ? styles.payerTextActive : styles.payerText}>
-                {p.id === currentUserId ? 'You' : p.displayName}
-              </UIText>
-            </Button>
-          );
-        })}
-      </View>
+        {error && <Banner tone="error">{error}</Banner>}
 
-      {amountMinorUnits !== null && amountMinorUnits > 0 && (
-        <SplitEditor
-          splitType={splitType}
-          onSplitTypeChange={setSplitType}
-          participants={participants}
-          totalAmountMinorUnits={amountMinorUnits}
-          currentUserId={currentUserId}
-          values={splitValues}
-          onValuesChange={setSplitValues}
-        />
-      )}
-
-      <Text style={styles.fieldLabel}>Notes (optional)</Text>
-      <UITextInput
-        style={{ ...styles.input, ...styles.notesInput }}
-        textStyle={styles.inputText}
-        multiline
-        defaultValue={notes}
-        onChangeText={setNotes}
-      />
-
-      {(formError ?? submitError) && <Text style={styles.error}>{formError ?? submitError}</Text>}
-
-      <View style={styles.submitBox}>
-        <Button variant="text" onPress={handleSubmit} disabled={isSubmitting} style={styles.submitButton}>
-          {isSubmitting ? <ActivityIndicator color="#fff" /> : <UIText textStyle={styles.submitText}>{submitLabel}</UIText>}
-        </Button>
-      </View>
-    </ScrollView>
+        <Button title={submitLabel} icon="check" onPress={handleSubmit} loading={isSubmitting} />
+      </ScrollView>
+    </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { padding: 20, gap: 12 },
-  fieldLabel: { fontSize: 13, fontWeight: '600', color: '#666', marginTop: 4 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 8,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    backgroundColor: '#fff',
-  },
-  inputText: { fontSize: 16, color: '#000' },
-  notesInput: { height: 60 },
-  amountRow: { flexDirection: 'row', gap: 12 },
-  amountField: { flex: 2 },
-  currencyField: { flex: 1 },
-  payerRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  payerOption: {
-    borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 16,
-    paddingHorizontal: 12,
+  flex: { flex: 1 },
+  container: { padding: spacing.lg, gap: spacing.xl, paddingBottom: spacing.xxxl * 2 },
+  context: { alignSelf: 'center' },
+  hero: { padding: 0 },
+  descriptionRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, padding: spacing.lg },
+  categoryBadge: { width: 44, height: 44, borderRadius: 13, alignItems: 'center', justifyContent: 'center' },
+  descriptionInput: { ...typography.title3, flex: 1, color: colors.label, outlineStyle: 'solid', outlineWidth: 0, paddingVertical: 4 },
+  divider: { height: StyleSheet.hairlineWidth, backgroundColor: colors.separator, marginLeft: spacing.lg },
+  amountRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.lg },
+  currencyPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 10,
     paddingVertical: 6,
-    backgroundColor: '#fff',
+    borderRadius: radius.pill,
+    backgroundColor: colors.brandTint,
   },
-  payerOptionActive: {
-    backgroundColor: '#208aef',
-    borderColor: '#208aef',
-    borderWidth: 1,
-    borderRadius: 16,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-  },
-  payerText: { fontSize: 13, color: '#000' },
-  payerTextActive: { fontSize: 13, color: '#fff' },
-  error: { color: '#d92d20', fontSize: 13 },
-  submitBox: { marginTop: 8, marginBottom: 40 },
-  submitButton: {
-    backgroundColor: '#208aef',
-    borderRadius: 8,
-    paddingVertical: 14,
-  },
-  submitText: { color: '#fff', fontWeight: '600', fontSize: 16 },
+  symbol: { ...typography.title1, color: colors.tertiaryLabel, marginLeft: spacing.xs },
+  amountInput: { ...typography.largeTitle, flex: 1, color: colors.label, outlineStyle: 'solid', outlineWidth: 0, paddingVertical: 0, minWidth: 0 },
+  block: { gap: spacing.sm },
+  blockLabel: { marginLeft: spacing.lg, letterSpacing: 0.2 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
 });

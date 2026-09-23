@@ -1,125 +1,245 @@
-import { ActivityIndicator, FlatList, Pressable, StyleSheet, Text, View } from 'react-native';
-import { Link } from 'expo-router';
+import { useMemo, useState } from 'react';
+import { RefreshControl, ScrollView, StyleSheet, View } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
+import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import type { CounterpartBalance } from '@pooln/shared';
 import * as balancesApi from '../../../api/balances';
 import { formatMoney } from '../../../lib/money';
 import { useTabBarClearance } from '../../../components/FloatingTabBar';
-import { GlassToolbar } from '../../../components/GlassToolbar';
+import {
+  AppText,
+  Avatar,
+  EmptyState,
+  ErrorState,
+  Icon,
+  IconButton,
+  LargeHeader,
+  ListRow,
+  ListSection,
+  SearchBar,
+  SegmentedControl,
+  SkeletonList,
+  colors,
+  gradients,
+  radius,
+  spacing,
+} from '../../../ui';
 
-function BalanceRow({ balance }: { balance: CounterpartBalance }) {
+type Filter = 'all' | 'owed' | 'owe';
+
+function totalsByCurrency(balances: CounterpartBalance[]) {
+  const totals = new Map<string, { owed: number; owe: number }>();
+  for (const person of balances) {
+    for (const line of person.balances) {
+      const t = totals.get(line.currency) ?? { owed: 0, owe: 0 };
+      if (line.amountMinorUnits >= 0) t.owed += line.amountMinorUnits;
+      else t.owe += -line.amountMinorUnits;
+      totals.set(line.currency, t);
+    }
+  }
+  return [...totals.entries()].map(([currency, t]) => ({ currency, ...t, net: t.owed - t.owe }));
+}
+
+function SummaryCard({ balances }: { balances: CounterpartBalance[] }) {
+  const totals = totalsByCurrency(balances);
+  const primary = totals[0];
+
   return (
-    <Link href={`/balances/${balance.userId}`} asChild>
-      <Pressable style={styles.row}>
-        <View style={styles.left}>
-          <Text style={styles.name}>{balance.displayName}</Text>
-          {balance.balances.length === 0 ? (
-            <Text style={styles.settled}>Settled up</Text>
-          ) : (
-            balance.balances.map((line) => (
-              <Text key={line.currency} style={styles.detail}>
-                {line.amountMinorUnits >= 0 ? 'Owes you ' : 'You owe '}
-                {formatMoney(Math.abs(line.amountMinorUnits), line.currency)}
-              </Text>
-            ))
-          )}
-        </View>
+    <LinearGradient colors={gradients.brand} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={styles.summary}>
+      <View style={styles.summaryTop}>
+        <AppText variant="footnote" weight="600" style={styles.summaryEyebrow}>
+          OVERALL BALANCE
+        </AppText>
+        <Icon name="sparkles" size={16} color="rgba(255,255,255,0.8)" />
+      </View>
 
-        {balance.balances.length > 0 && (
-          <View style={styles.amounts}>
-            {balance.balances.map((line) => (
-              <View key={line.currency} style={styles.amountBlock}>
-                <Text
-                  style={[styles.amountLabel, line.amountMinorUnits >= 0 ? styles.positive : styles.negative]}
-                >
-                  {line.amountMinorUnits >= 0 ? "You're owed" : 'You owe'}
-                </Text>
-                <Text style={[styles.amount, line.amountMinorUnits >= 0 ? styles.positive : styles.negative]}>
-                  {formatMoney(Math.abs(line.amountMinorUnits), line.currency)}
-                </Text>
+      {!primary ? (
+        <>
+          <AppText variant="title1" tone="onBrand">
+            All settled up
+          </AppText>
+          <AppText variant="subhead" style={styles.summaryMuted}>
+            Nobody owes anybody. Nice.
+          </AppText>
+        </>
+      ) : (
+        <>
+          {totals.map((t) => (
+            <View key={t.currency}>
+              <AppText variant="subhead" style={styles.summaryMuted}>
+                {t.net >= 0 ? 'You are owed' : 'You owe'}
+              </AppText>
+              <AppText variant="largeTitle" tone="onBrand">
+                {formatMoney(Math.abs(t.net), t.currency)}
+              </AppText>
+            </View>
+          ))}
+          <View style={styles.summaryStats}>
+            <View style={styles.summaryStat}>
+              <View style={[styles.statIcon, { backgroundColor: 'rgba(52,199,89,0.28)' }]}>
+                <Icon name="arrowDownLeft" size={12} color="#fff" />
               </View>
-            ))}
+              <View>
+                <AppText variant="caption" style={styles.summaryMuted}>
+                  Owed to you
+                </AppText>
+                <AppText variant="headline" tone="onBrand">
+                  {formatMoney(primary.owed, primary.currency)}
+                </AppText>
+              </View>
+            </View>
+            <View style={styles.summaryStat}>
+              <View style={[styles.statIcon, { backgroundColor: 'rgba(255,69,58,0.3)' }]}>
+                <Icon name="arrowUpRight" size={12} color="#fff" />
+              </View>
+              <View>
+                <AppText variant="caption" style={styles.summaryMuted}>
+                  You owe
+                </AppText>
+                <AppText variant="headline" tone="onBrand">
+                  {formatMoney(primary.owe, primary.currency)}
+                </AppText>
+              </View>
+            </View>
           </View>
-        )}
-      </Pressable>
-    </Link>
+        </>
+      )}
+    </LinearGradient>
   );
 }
 
-export default function ExpensesList() {
-  const { data, isLoading, isError } = useQuery({
+function BalanceRow({ person }: { person: CounterpartBalance }) {
+  const settled = person.balances.length === 0;
+  const subtitle = settled
+    ? 'Settled up'
+    : person.balances
+        .map((l) => `${l.amountMinorUnits >= 0 ? 'Owes you' : 'You owe'} ${formatMoney(Math.abs(l.amountMinorUnits), l.currency)}`)
+        .join(' · ');
+
+  return (
+    <ListRow
+      title={person.displayName}
+      subtitle={subtitle}
+      leading={<Avatar name={person.displayName} uri={person.avatarUrl} size={42} />}
+      onPress={() => router.push(`/balances/${person.userId}`)}
+      trailing={
+        settled ? undefined : (
+          <View style={styles.amounts}>
+            {person.balances.map((l) => (
+              <AppText
+                key={l.currency}
+                variant="headline"
+                tone={l.amountMinorUnits >= 0 ? 'positive' : 'negative'}
+              >
+                {l.amountMinorUnits >= 0 ? '+' : '−'}
+                {formatMoney(Math.abs(l.amountMinorUnits), l.currency)}
+              </AppText>
+            ))}
+          </View>
+        )
+      }
+    />
+  );
+}
+
+export default function ExpensesHome() {
+  const { data, isLoading, isError, refetch, isRefetching } = useQuery({
     queryKey: ['balances'],
     queryFn: balancesApi.listBalances,
   });
-  const fabBottom = useTabBarClearance();
+  const bottomPadding = useTabBarClearance();
+  const [query, setQuery] = useState('');
+  const [filter, setFilter] = useState<Filter>('all');
+
+  const visible = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return (data ?? []).filter((person) => {
+      if (q && !person.displayName.toLowerCase().includes(q)) return false;
+      if (filter === 'owed') return person.balances.some((l) => l.amountMinorUnits > 0);
+      if (filter === 'owe') return person.balances.some((l) => l.amountMinorUnits < 0);
+      return true;
+    });
+  }, [data, query, filter]);
+
+  const addExpense = () => router.push('/expenses/new');
 
   return (
-    <View style={styles.host}>
-      <GlassToolbar title="Expenses" />
+    <View style={styles.screen}>
+      <LargeHeader
+        title="Expenses"
+        actions={<IconButton icon="plus" variant="filled" onPress={addExpense} accessibilityLabel="Add expense" />}
+      />
 
-      <View style={styles.container}>
-        {isLoading && <ActivityIndicator style={styles.spinner} />}
-        {isError && <Text style={styles.error}>Couldn&apos;t load expenses.</Text>}
-        {data && (
-          <FlatList
-            data={data}
-            keyExtractor={(item) => item.userId}
-            renderItem={({ item }) => <BalanceRow balance={item} />}
-            ListEmptyComponent={<Text style={styles.empty}>No expenses yet. Add one to get started.</Text>}
-            contentContainerStyle={data.length === 0 && styles.emptyContainer}
+      <ScrollView
+        contentContainerStyle={[styles.content, { paddingBottom: bottomPadding }]}
+        refreshControl={<RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor={colors.brand} />}
+        keyboardShouldPersistTaps="handled"
+      >
+        {isLoading && <SkeletonList rows={5} />}
+        {isError && <ErrorState message="Couldn't load your balances." onRetry={refetch} />}
+
+        {data && data.length === 0 && (
+          <EmptyState
+            icon="wallet"
+            title="No expenses yet"
+            message="Add an expense to start splitting costs with friends and groups."
+            actionLabel="Add expense"
+            onAction={addExpense}
           />
         )}
 
-        <Link href="/expenses/new" asChild>
-          <Pressable style={StyleSheet.flatten([styles.fab, { bottom: fabBottom }])}>
-            <Text style={styles.fabText}>＋</Text>
-          </Pressable>
-        </Link>
-      </View>
+        {data && data.length > 0 && (
+          <>
+            <SummaryCard balances={data} />
+
+            <View style={styles.controls}>
+              <SearchBar value={query} onChangeText={setQuery} placeholder="Search friends" />
+              <SegmentedControl
+                value={filter}
+                onChange={setFilter}
+                options={[
+                  { value: 'all', label: 'All' },
+                  { value: 'owed', label: 'Owed to you' },
+                  { value: 'owe', label: 'You owe' },
+                ]}
+              />
+            </View>
+
+            {visible.length > 0 ? (
+              <ListSection title={`Friends · ${visible.length}`} separatorInset={70}>
+                {visible.map((person) => (
+                  <BalanceRow key={person.userId} person={person} />
+                ))}
+              </ListSection>
+            ) : (
+              <EmptyState icon="search" title="No matches" message="Try a different name or filter." />
+            )}
+          </>
+        )}
+      </ScrollView>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  host: { flex: 1 },
-  container: { flex: 1 },
-  spinner: { marginTop: 40 },
-  error: { color: '#d92d20', padding: 20 },
-  empty: { color: '#666', textAlign: 'center', padding: 20 },
-  emptyContainer: { flex: 1, justifyContent: 'center' },
-  row: {
+  screen: { flex: 1, backgroundColor: colors.background },
+  content: { paddingHorizontal: spacing.lg, paddingTop: spacing.sm, gap: spacing.xl },
+  summary: { borderRadius: radius.xl, padding: spacing.xl, gap: spacing.sm, boxShadow: '0px 12px 30px rgba(79,91,213,0.3)' },
+  summaryTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  summaryEyebrow: { color: 'rgba(255,255,255,0.75)', letterSpacing: 0.8 },
+  summaryMuted: { color: 'rgba(255,255,255,0.78)' },
+  summaryStats: { flexDirection: 'row', gap: spacing.md, marginTop: spacing.sm },
+  summaryStat: {
+    flex: 1,
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
-    paddingHorizontal: 20,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
-  },
-  left: { flex: 1, gap: 2 },
-  name: { fontSize: 16, fontWeight: '600' },
-  detail: { fontSize: 13, color: '#666' },
-  settled: { fontSize: 13, color: '#666' },
-  amounts: { alignItems: 'flex-end', gap: 6 },
-  amountBlock: { alignItems: 'flex-end' },
-  amountLabel: { fontSize: 12 },
-  amount: { fontSize: 16, fontWeight: '700' },
-  positive: { color: '#34a853' },
-  negative: { color: '#ff3b30' },
-  fab: {
-    position: 'absolute',
-    right: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-    backgroundColor: '#208aef',
     alignItems: 'center',
-    justifyContent: 'center',
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(255,255,255,0.14)',
   },
-  fabText: { color: '#fff', fontSize: 28, lineHeight: 30 },
+  statIcon: { width: 24, height: 24, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+  controls: { gap: spacing.md },
+  amounts: { alignItems: 'flex-end' },
 });

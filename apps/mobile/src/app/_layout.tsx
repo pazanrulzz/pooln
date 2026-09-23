@@ -1,12 +1,16 @@
 import { useEffect } from 'react';
 import { Stack } from 'expo-router';
+import { StatusBar } from 'expo-status-bar';
 import * as SplashScreen from 'expo-splash-screen';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { useAuthStore } from '../stores/authStore';
+import { OverlayHost, colors } from '../ui';
 
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: { queries: { staleTime: 30_000, retry: 1 } },
+});
 
 export default function RootLayout() {
   const isHydrated = useAuthStore((s) => s.isHydrated);
@@ -29,16 +33,18 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
-      <Stack>
+      <StatusBar style="dark" />
+      <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
         <Stack.Protected guard={!!accessToken}>
-          <Stack.Screen name="(app)" options={{ headerShown: false }} />
+          <Stack.Screen name="(app)" />
         </Stack.Protected>
         <Stack.Protected guard={!accessToken}>
-          <Stack.Screen name="sign-in" options={{ title: 'Sign in' }} />
-          <Stack.Screen name="sign-up" options={{ title: 'Sign up' }} />
+          <Stack.Screen name="sign-in" />
+          <Stack.Screen name="sign-up" />
         </Stack.Protected>
-        <Stack.Screen name="join/[token]" options={{ title: 'Join group' }} />
+        <Stack.Screen name="join/[token]" />
       </Stack>
+      <OverlayHost />
     </QueryClientProvider>
   );
 }
